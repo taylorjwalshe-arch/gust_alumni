@@ -12,9 +12,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+type Role = "all" | "alumni" | "student";
+
 export default function DirectoryPage() {
   const [q, setQ] = useState("");
-  const [role, setRole] = useState<"all" | "alumni" | "student">("all");
+  const [role, setRole] = useState<Role>("all");
   const [industry, setIndustry] = useState("");
 
   const people = useMemo(() => {
@@ -50,7 +52,7 @@ export default function DirectoryPage() {
 
         <div className="flex-1">
           <Label htmlFor="role">Role</Label>
-          <Select value={role} onValueChange={(v) => setRole(v as any)}>
+          <Select value={role} onValueChange={(v) => setRole(v as Role)}>
             <SelectTrigger>
               <SelectValue placeholder="All Roles" />
             </SelectTrigger>
