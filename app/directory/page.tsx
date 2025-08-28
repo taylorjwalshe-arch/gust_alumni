@@ -89,22 +89,23 @@ export default function DirectoryPage() {
       ) : (
         <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {people.map((p) => (
-            <li key={p.id} className="border rounded-xl p-4">
-              <div className="font-semibold">
-                <Link
-                  href={`/profile/${p.id}`}
-                  className="text-blue-600 underline"
-                >
+            <li key={p.id}>
+              <Link
+                href={`/profile/${p.id}`}
+                className="block border rounded-xl p-4 transition hover:shadow-sm hover:bg-muted/40 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                aria-label={`View profile for ${p.firstName} ${p.lastName}`}
+              >
+                <div className="font-semibold">
                   {p.firstName} {p.lastName}
-                </Link>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {p.role.toUpperCase()} · {p.gradYear ?? "—"}
-              </div>
-              <div className="text-sm">
-                {p.industry ?? "—"} @ {p.company ?? "—"}
-              </div>
-              <div className="text-sm">{p.location ?? "—"}</div>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {p.role.toUpperCase()} · {p.gradYear ?? "—"}
+                </div>
+                <div className="text-sm">
+                  {p.industry ?? "—"} @ {p.company ?? "—"}
+                </div>
+                <div className="text-sm">{p.location ?? "—"}</div>
+              </Link>
             </li>
           ))}
         </ul>
