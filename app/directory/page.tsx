@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { people as seed } from "@/data/people";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -90,7 +91,12 @@ export default function DirectoryPage() {
           {people.map((p) => (
             <li key={p.id} className="border rounded-xl p-4">
               <div className="font-semibold">
-                {p.firstName} {p.lastName}
+                <Link
+                  href={`/profile/${p.id}`}
+                  className="text-blue-600 underline"
+                >
+                  {p.firstName} {p.lastName}
+                </Link>
               </div>
               <div className="text-sm text-muted-foreground">
                 {p.role.toUpperCase()} · {p.gradYear ?? "—"}
