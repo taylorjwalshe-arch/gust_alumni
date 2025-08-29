@@ -1,118 +1,96 @@
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/auth";
-import { prisma } from "@/lib/db";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
+import { authOptions } from "@/auth";
 
-// Simple Input/Label stand-ins to avoid import churn.
-// If you already have shadcn/ui versions, you can keep them.
-function Label(props: React.LabelHTMLAttributes<HTMLLabelElement>) {
-  return <label className="block text-sm font-medium mb-1" {...props} />;
-}
-function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input className="w-full rounded-md border p-2" {...props} />;
-}
-
-export default async function MyProfilePage() {
+export default async function ProfilePage() {
   const session = await getServerSession(authOptions);
 
-  // If no session, render a safe sign-in prompt (no crashes).
-  if (!session || !session.user?.email) {
+  // Not signed in → simple prompt
+  if (!session?.user?.email) {
     return (
       <main className="max-w-2xl mx-auto py-12 space-y-4">
         <h1 className="text-2xl font-bold">My Profile</h1>
-        <p className="text-sm text-muted-foreground">
-          You’re not signed in.
-        </p>
-        <a
-          href="/api/auth/signin"
-          className="inline-block border rounded-xl px-4 py-2 hover:bg-muted"
-        >
-          Sign in with GitHub
-        </a>
+        <p>You’re not signed in.</p>
+        <div className="flex gap-3">
+          <Link href="/api/auth/signin" className="text-blue-600 underline">
+            Sign in
+          </Link>
+          <Link href="/directory" className="text-blue-600 underline">
+            Back to Directory
+          </Link>
+        </div>
       </main>
     );
   }
 
-  // Find person by userId (create a shell record if missing so the form works)
-  const userId = (session.user as any).id as string | undefined;
-  let me = userId
-    ? await prisma.person.findUnique({ where: { userId } })
-    : null;
+  // Look up the logged-in user's Person record by email
+  const me = await prisma.person.findFirst({
+    where: { email: session.user.email },
+  });
 
-  if (!me) {
-    // Try by email as fallback (in case we seeded by email only)
-    me = await prisma.person.findUnique({ where: { email: session.user.email! } });
-  }
-
-  if (!me && userId) {
-    me = await prisma.person.create({
-      data: {
-        userId,
-        firstName: session.user.name?.split(" ")[0] ?? "First",
-        lastName: session.user.name?.split(" ").slice(1).join(" ") || "Last",
-        email: session.user.email ?? undefined,
-        role: "alumni",
-      },
-    });
-  }
-
-  // If still nothing, show a soft message instead of throwing
   if (!me) {
     return (
       <main className="max-w-2xl mx-auto py-12 space-y-4">
         <h1 className="text-2xl font-bold">My Profile</h1>
-        <p className="text-sm">
-          We couldn’t locate or create your profile automatically.
-        </p>
-        <a href="/api/auth/signout" className="text-blue-600 underline">
-          Sign out
-        </a>
+        <p>No profile found for {session.user.email}.</p>
+        <div className="flex gap-3">
+          <Link href="/directory" className="text-blue-600 underline">
+            Back to Directory
+          </Link>
+          <Link href="/api/auth/signout" className="text-blue-600 underline">
+            Sign out
+          </Link>
+        </div>
       </main>
     );
   }
 
-  // Render a minimal read-only snapshot (your existing edit form is fine too)
-  const industries =
-    Array.isArray(me.industries) ? (me.industries as string[]) : [];
+  const industries = (me.industries as unknown as string[] | null) ?? [];
 
   return (
     <main className="max-w-2xl mx-auto py-12 space-y-4">
       <h1 className="text-2xl font-bold">My Profile</h1>
 
       <div className="space-y-1">
-        <Label>Name</Label>
-        <div>{me.firstName} {me.lastName}</div>
+        <div className="font-medium">Name</div>
+        <div>
+          {me.firstName} {me.lastName}
+        </div>
       </div>
 
       <div className="space-y-1">
-        <Label>Email</Label>
+        <div className="font-medium">Email</div>
         <div>{me.email ?? "—"}</div>
       </div>
 
       <div className="space-y-1">
-        <Label>Role</Label>
+        <div className="font-medium">Role</div>
         <div>{me.role}</div>
       </div>
 
       <div className="space-y-1">
-        <Label>Industries</Label>
+        <div className="font-medium">Industries</div>
         <div>{industries.length ? industries.join(", ") : "—"}</div>
       </div>
 
       <div className="space-y-1">
-        <Label>Company</Label>
+        <div className="font-medium">Company</div>
         <div>{me.company ?? "—"}</div>
       </div>
 
       <div className="space-y-1">
-        <Label>Location</Label>
+        <div className="font-medium">Location</div>
         <div>{me.location ?? "—"}</div>
       </div>
 
       <div className="pt-4 flex gap-3">
-        <a href="/api/auth/signout" className="text-blue-600 underline">Sign out</a>
-        <Link href="/directory" className="text-blue-600 underline">Back to Directory</Link>
+        <Link href="/api/auth/signout" className="text-blue-600 underline">
+          Sign out
+        </Link>
+        <Link href="/directory" className="text-blue-600 underline">
+          Back to Directory
+        </Link>
       </div>
     </main>
   );
