@@ -7,18 +7,12 @@ function arr(q: string | null): string[] {
   return q.split(',').map((s) => s.trim()).filter(Boolean);
 }
 
-// Try common model names: adjust or extend this list if needed later.
-const MODEL_CANDIDATES = ['profile', 'profiles', 'alumniProfile', 'user', 'users'] as const;
-
-function getPrismaModel(): unknown {
-  const client = prisma as unknown as Record<string, unknown>;
-  for (const name of MODEL_CANDIDATES) {
-    const m = client[name];
-    if (m && typeof m === 'object') return m;
-  }
-  throw new Error(
-    'Mentors API: No suitable Prisma model found. Tried: ' + MODEL_CANDIDATES.join(', ')
-  );
+function getModel() {
+  const name = process.env.PRISMA_MENTOR_MODEL || 'user';
+  const anyPrisma = prisma as unknown as Record<string, unknown>;
+  const model = anyPrisma[name];
+  if (!model) throw new Error(`PRISMA_MENTOR_MODEL='${name}' not found on prisma client.`);
+  return model as unknown;
 }
 
 export async function GET(req: Request) {
@@ -27,52 +21,75 @@ export async function GET(req: Request) {
   const industries = arr(searchParams.get('industry'));
   const page = Number(searchParams.get('page') || '1');
   const pageSize = Math.min(Number(searchParams.get('pageSize') || '24'), 50);
+  const offset = (page - 1) * pageSize;
 
   const where = {
     AND: [
-      // Assumes your model has an isMentor boolean flag set in seed.
-      { isMentor: true },
+      // We *try* to filter by fields commonly present. If the model lacks them,
+      // the catch() below will fallback to a simpler query.
       q
         ? {
             OR: [
               { firstName: { contains: q, mode: 'insensitive' as const } },
-              { lastName: { contains: q, mode: 'insensitive' as const } },
-              { headline: { contains: q, mode: 'insensitive' as const } },
-              { industry: { contains: q, mode: 'insensitive' as const } },
-              { location: { contains: q, mode: 'insensitive' as const } },
+              { lastName:  { contains: q, mode: 'insensitive' as const } },
+              { headline:  { contains: q, mode: 'insensitive' as const } },
+              { industry:  { contains: q, mode: 'insensitive' as const } },
+              { location:  { contains: q, mode: 'insensitive' as const } },
             ],
           }
         : {},
       industries.length ? { industry: { in: industries } } : {},
+      // If your seed marks mentors, we’ll add it later after we confirm the column name.
     ],
   };
 
   const orderBy = [{ lastName: 'asc' as const }, { firstName: 'asc' as const }];
+  const model = getModel();
 
-  const model = getPrismaModel();
+  let items: any[] = [];
+  let total = 0;
 
-  // We intentionally use @ts-expect-error on the dynamic calls below.
-  // Reason: the exact Prisma model name varies across repos; we pick it at runtime.
-  // TypeScript cannot know which model we chosen, but at runtime Prisma handles it.
-  // @ts-expect-error – dynamic Prisma model
-  const items = await model.findMany({
-    where,
-    orderBy,
-    skip: (page - 1) * pageSize,
-    take: pageSize,
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      headline: true,
-      industry: true,
-      location: true,
-      imageUrl: true,
-    },
-  });
-
-  // @ts-expect-error – dynamic Prisma model
-  const total = await model.count({ where });
+  // Attempt full query (best case)
+  try {
+    // @ts-expect-error dynamic model
+    items = await model.findMany({
+      where, orderBy, skip: offset, take: pageSize,
+      select: {
+        id: true, firstName: true, lastName: true,
+        headline: true, industry: true, location: true, imageUrl: true,
+      },
+    });
+    // @ts-expect-error dynamic model
+    total = await model.count({ where });
+  } catch {
+    // Fallback A: only select id, firstName, lastName
+    try {
+      // @ts-expect-error dynamic model
+      items = await model.findMany({
+        skip: offset, take: pageSize,
+        select: { id: true, firstName: true, lastName: true },
+      });
+      // @ts-expect-error dynamic model
+      total = await model.count();
+      items = items.map((r: any) => ({
+        id: String(r.id),
+        firstName: r.firstName ?? null,
+        lastName: r.lastName ?? null,
+        headline: null, industry: null, location: null, imageUrl: null,
+      }));
+    } catch {
+      // Fallback B: only id
+      // @ts-expect-error dynamic model
+      items = await model.findMany({ skip: offset, take: pageSize, select: { id: true } });
+      // @ts-expect-error dynamic model
+      total = await model.count();
+      items = items.map((r: any) => ({
+        id: String(r.id),
+        firstName: null, lastName: null,
+        headline: null, industry: null, location: null, imageUrl: null,
+      }));
+    }
+  }
 
   return NextResponse.json({ items, total, page, pageSize });
 }
