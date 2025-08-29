@@ -16,32 +16,57 @@ function getModel(): ListDelegate {
 }
 
 export async function GET(request: Request) {
-  void request.url; // silence unused var
   try {
     const model = getModel();
+    const { searchParams } = new URL(request.url);
+    const pageSize = Math.min(Number(searchParams.get('pageSize') || '200'), 500); // load more so client-side filters work
 
-    const itemsUnknown = await model.findMany({
-      take: 24,
-      select: { id: true, firstName: true, lastName: true },
-    } as unknown);
+    // First, try to grab industries/expertise if they exist on your schema.
+    try {
+      const itemsUnknown = await model.findMany({
+        take: pageSize,
+        select: { id: true, firstName: true, lastName: true, industries: true, expertise: true },
+      } as unknown);
+      const total = await model.count();
 
-    const total = await model.count();
-
-    const items = (Array.isArray(itemsUnknown) ? itemsUnknown : []) as Array<Record<string, unknown>>;
-    const normalized = items.map((r) => ({
-      id: String(r.id),
-      firstName: (r.firstName as string | undefined) ?? null,
-      lastName: (r.lastName as string | undefined) ?? null,
-      headline: null,
-      industry: null,
-      location: null,
-      imageUrl: null,
-    }));
-
-    return NextResponse.json({ items: normalized, total, page: 1, pageSize: 24 });
+      const items = (Array.isArray(itemsUnknown) ? itemsUnknown : []) as Array<Record<string, unknown>>;
+      const normalized = items.map((r) => ({
+        id: String(r.id),
+        firstName: (r.firstName as string | undefined) ?? null,
+        lastName: (r.lastName as string | undefined) ?? null,
+        // optional arrays if present
+        industries: (r.industries as string[] | undefined) ?? null,
+        expertise: (r.expertise as string[] | undefined) ?? null,
+        // keep these for UI shape
+        headline: null,
+        industry: null,
+        location: null,
+        imageUrl: null,
+      }));
+      return NextResponse.json({ items: normalized, total, page: 1, pageSize });
+    } catch {
+      // Fallback: minimal shape only (never throw)
+      const itemsUnknown = await model.findMany({
+        take: pageSize,
+        select: { id: true, firstName: true, lastName: true },
+      } as unknown);
+      const total = await model.count();
+      const items = (Array.isArray(itemsUnknown) ? itemsUnknown : []) as Array<Record<string, unknown>>;
+      const normalized = items.map((r) => ({
+        id: String(r.id),
+        firstName: (r.firstName as string | undefined) ?? null,
+        lastName: (r.lastName as string | undefined) ?? null,
+        industries: null,
+        expertise: null,
+        headline: null,
+        industry: null,
+        location: null,
+        imageUrl: null,
+      }));
+      return NextResponse.json({ items: normalized, total, page: 1, pageSize });
+    }
   } catch (err) {
     console.error('Mentors API error:', err);
-    // Always return JSON so the client never shows a red error banner
-    return NextResponse.json({ items: [], total: 0, page: 1, pageSize: 24, note: 'fallback-empty' });
+    return NextResponse.json({ items: [], total: 0, page: 1, pageSize: 200, note: 'fallback-empty' });
   }
 }

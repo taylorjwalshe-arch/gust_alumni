@@ -7,13 +7,18 @@ export type MentorListItem = {
   firstName: string | null;
   lastName: string | null;
   headline: string | null;
-  industry: string | null;
+  industry?: string | null;        // legacy single field (may be null)
+  industries?: string[] | null;     // new array field (optional)
   location: string | null;
   imageUrl: string | null;
+  expertise?: string[] | null;      // optional
 };
 
 export function MentorCard({ m }: { m: MentorListItem }) {
   const name = `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() || 'Unnamed';
+  const tags = (m.industries && m.industries.length ? m.industries.slice(0, 3) : [])
+    .concat(m.industry ? [m.industry] : []);
+
   return (
     <Link href={`/mentors/${m.id}`} className="block group">
       <div className="rounded-2xl bg-white/5 p-4 border border-gray-200 hover:shadow-md transition">
@@ -28,10 +33,13 @@ export function MentorCard({ m }: { m: MentorListItem }) {
             <div className="text-sm text-gray-500">{m.headline ?? '—'}</div>
           </div>
         </div>
-        <div className="mt-3 text-xs text-gray-500 flex flex-wrap gap-2">
-          {m.industry && <span className="px-2 py-0.5 rounded-full border">{m.industry}</span>}
-          {m.location && <span className="px-2 py-0.5 rounded-full border">{m.location}</span>}
-        </div>
+        {!!tags.length && (
+          <div className="mt-3 text-xs text-gray-500 flex flex-wrap gap-2">
+            {tags.map((t) => (
+              <span key={t} className="px-2 py-0.5 rounded-full border">{t}</span>
+            ))}
+          </div>
+        )}
       </div>
     </Link>
   );
