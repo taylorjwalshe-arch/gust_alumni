@@ -1,24 +1,22 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-// Use the Node-safe server session helper
 import { getServerSession } from "next-auth/next";
+import type { Session } from "next-auth";
 import { authOptions } from "@/auth";
 
-// Ensure this page does not get statically rendered or moved to Edge
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function MyProfilePage() {
-  let session: Awaited<ReturnType<typeof getServerSession>> | null = null;
+  // Explicit type so TS knows session has a "user"
+  let session: Session | null = null;
 
-  // Never crash if next-auth throws for any reason (e.g., bad cookie, missing secret, etc.)
   try {
-    session = await getServerSession(authOptions);
+    session = await getServerSession(authOptions as any);
   } catch {
     session = null;
   }
 
-  // Signed-out experience (no exception)
   if (!session?.user?.email) {
     return (
       <main className="max-w-2xl mx-auto py-12 space-y-4">
@@ -33,7 +31,6 @@ export default async function MyProfilePage() {
     );
   }
 
-  // Fetch your Person row by email; also guarded
   const me =
     (await prisma.person.findUnique({
       where: { email: session.user.email },
