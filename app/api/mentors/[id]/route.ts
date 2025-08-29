@@ -2,69 +2,44 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
 
-function getModel() {
-  const name = process.env.PRISMA_MENTOR_MODEL || 'user';
+type DetailDelegate = {
+  findUnique: (args: unknown) => Promise<unknown>;
+};
+
+function getModel(): DetailDelegate {
+  const name = process.env.PRISMA_MENTOR_MODEL || 'person';
   const anyPrisma = prisma as unknown as Record<string, unknown>;
   const model = anyPrisma[name];
   if (!model) throw new Error(`PRISMA_MENTOR_MODEL='${name}' not found on prisma client.`);
-  return model as unknown;
+  return model as unknown as DetailDelegate;
 }
 
-export async function GET(req: Request) {
+function asRec(x: unknown): Record<string, unknown> {
+  return (x ?? {}) as Record<string, unknown>;
+}
+
+export async function GET(request: Request) {
   const model = getModel();
-  const { pathname } = new URL(req.url);
-  const id = pathname.split('/').pop() as string;
+  const { pathname } = new URL(request.url);
+  const id = (pathname.split('/').pop() || '').trim();
 
-  let data: any = null;
+  const args = (val: string | number) =>
+    ({ where: { id: val }, select: { id: true, firstName: true, lastName: true } }) as unknown;
 
-  // Try with richer selection
-  try {
-    // @ts-expect-error dynamic model
-    data = await model.findUnique({
-      where: { id },
-      select: {
-        id: true, firstName: true, lastName: true,
-        headline: true, industry: true, location: true, imageUrl: true,
-      },
-    });
-  } catch {
-    // If string id doesn’t exist, try numeric id
-    if (/^\d+$/.test(id)) {
-      try {
-        // @ts-expect-error dynamic model
-        data = await model.findUnique({
-          where: { id: Number(id) },
-          select: {
-            id: true, firstName: true, lastName: true,
-            headline: true, industry: true, location: true, imageUrl: true,
-          },
-        });
-      } catch { /* ignore */ }
-    }
+  let data = await model.findUnique(args(id));
+  if (!data && /^\d+$/.test(id)) {
+    data = await model.findUnique(args(Number(id)));
   }
-
-  // Fallback: minimal selection
-  if (!data) {
-    try {
-      // @ts-expect-error dynamic model
-      data = await model.findUnique({ where: { id }, select: { id: true, firstName: true, lastName: true } });
-    } catch {
-      if (/^\d+$/.test(id)) {
-        // @ts-expect-error dynamic model
-        data = await model.findUnique({ where: { id: Number(id) }, select: { id: true } });
-      }
-    }
-  }
-
   if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+  const r = asRec(data);
   return NextResponse.json({
-    id: String(data.id),
-    firstName: data.firstName ?? null,
-    lastName: data.lastName ?? null,
-    headline: data.headline ?? null,
-    industry: data.industry ?? null,
-    location: data.location ?? null,
-    imageUrl: data.imageUrl ?? null,
+    id: String(r.id),
+    firstName: (r.firstName as string | undefined) ?? null,
+    lastName: (r.lastName as string | undefined) ?? null,
+    headline: null,
+    industry: null,
+    location: null,
+    imageUrl: null,
   });
 }
