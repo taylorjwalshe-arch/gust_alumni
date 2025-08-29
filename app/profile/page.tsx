@@ -2,173 +2,118 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { redirect } from "next/navigation";
 
-function toCsv(value: unknown): string {
-  if (!value) return "";
-  try {
-    const arr = Array.isArray(value) ? value : JSON.parse(String(value));
-    return Array.isArray(arr) ? arr.join(", ") : "";
-  } catch {
-    return "";
-  }
+// Simple Input/Label stand-ins to avoid import churn.
+// If you already have shadcn/ui versions, you can keep them.
+function Label(props: React.LabelHTMLAttributes<HTMLLabelElement>) {
+  return <label className="block text-sm font-medium mb-1" {...props} />;
 }
-
-export const revalidate = 0;
+function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return <input className="w-full rounded-md border p-2" {...props} />;
+}
 
 export default async function MyProfilePage() {
   const session = await getServerSession(authOptions);
 
-  if (!session?.user?.email) {
+  // If no session, render a safe sign-in prompt (no crashes).
+  if (!session || !session.user?.email) {
     return (
-      <main className="p-10 max-w-3xl mx-auto space-y-4">
+      <main className="max-w-2xl mx-auto py-12 space-y-4">
         <h1 className="text-2xl font-bold">My Profile</h1>
         <p className="text-sm text-muted-foreground">
-          Please sign in to edit your profile.
+          You’re not signed in.
         </p>
-        <Link
+        <a
           href="/api/auth/signin"
           className="inline-block border rounded-xl px-4 py-2 hover:bg-muted"
         >
           Sign in with GitHub
-        </Link>
+        </a>
       </main>
     );
   }
 
-  // Look up (or create) the Person linked to this user
-  const email = session.user.email!;
-  let me = await prisma.person.findFirst({ where: { email } });
+  // Find person by userId (create a shell record if missing so the form works)
+  const userId = (session.user as any).id as string | undefined;
+  let me = userId
+    ? await prisma.person.findUnique({ where: { userId } })
+    : null;
+
   if (!me) {
+    // Try by email as fallback (in case we seeded by email only)
+    me = await prisma.person.findUnique({ where: { email: session.user.email! } });
+  }
+
+  if (!me && userId) {
     me = await prisma.person.create({
       data: {
-        email,
+        userId,
         firstName: session.user.name?.split(" ")[0] ?? "First",
         lastName: session.user.name?.split(" ").slice(1).join(" ") || "Last",
+        email: session.user.email ?? undefined,
         role: "alumni",
       },
     });
   }
 
-  const defaultIndustries = toCsv(me.industries);
-  const defaultExpertise = toCsv(me.expertise);
-
-  async function saveProfile(formData: FormData) {
-    "use server";
-    const industriesCsv = (formData.get("industries") as string | null) ?? "";
-    const expertiseCsv = (formData.get("expertise") as string | null) ?? "";
-
-    await prisma.person.update({
-      where: { id: me!.id },
-      data: {
-        firstName: (formData.get("firstName") as string) || "",
-        lastName: (formData.get("lastName") as string) || "",
-        role: (formData.get("role") as string) || "alumni",
-        gradYear: Number(formData.get("gradYear")) || null,
-        company: (formData.get("company") as string) || null,
-        location: (formData.get("location") as string) || null,
-        priorExperience: (formData.get("priorExperience") as string) || null,
-        bio: (formData.get("bio") as string) || null,
-        teamAffiliation: (formData.get("teamAffiliation") as string) || null,
-        contactPermission: formData.get("contactPermission") === "on",
-        industries:
-          industriesCsv
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean) || [],
-        expertise:
-          expertiseCsv
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean) || [],
-      },
-    });
+  // If still nothing, show a soft message instead of throwing
+  if (!me) {
+    return (
+      <main className="max-w-2xl mx-auto py-12 space-y-4">
+        <h1 className="text-2xl font-bold">My Profile</h1>
+        <p className="text-sm">
+          We couldn’t locate or create your profile automatically.
+        </p>
+        <a href="/api/auth/signout" className="text-blue-600 underline">
+          Sign out
+        </a>
+      </main>
+    );
   }
 
+  // Render a minimal read-only snapshot (your existing edit form is fine too)
+  const industries =
+    Array.isArray(me.industries) ? (me.industries as string[]) : [];
+
   return (
-    <main className="p-10 max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">My Profile</h1>
-        <Link
-          href="/api/auth/signout"
-          className="text-sm underline text-muted-foreground"
-        >
-          Sign out
-        </Link>
+    <main className="max-w-2xl mx-auto py-12 space-y-4">
+      <h1 className="text-2xl font-bold">My Profile</h1>
+
+      <div className="space-y-1">
+        <Label>Name</Label>
+        <div>{me.firstName} {me.lastName}</div>
       </div>
 
-      <form action={saveProfile} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="firstName">First name</Label>
-            <Input id="firstName" name="firstName" defaultValue={me.firstName ?? ""} />
-          </div>
-          <div>
-            <Label htmlFor="lastName">Last name</Label>
-            <Input id="lastName" name="lastName" defaultValue={me.lastName ?? ""} />
-          </div>
-        </div>
+      <div className="space-y-1">
+        <Label>Email</Label>
+        <div>{me.email ?? "—"}</div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="role">Role</Label>
-            <Input id="role" name="role" defaultValue={me.role ?? ""} />
-          </div>
-          <div>
-            <Label htmlFor="gradYear">Grad year</Label>
-            <Input id="gradYear" name="gradYear" defaultValue={me.gradYear ?? ""} />
-          </div>
-        </div>
+      <div className="space-y-1">
+        <Label>Role</Label>
+        <div>{me.role}</div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="industries">Industry (comma separated)</Label>
-            <Input id="industries" name="industries" placeholder="Tech, Finance, Public Sector" defaultValue={defaultIndustries} />
-          </div>
-          <div>
-            <Label htmlFor="company">Company</Label>
-            <Input id="company" name="company" defaultValue={me.company ?? ""} />
-          </div>
-        </div>
+      <div className="space-y-1">
+        <Label>Industries</Label>
+        <div>{industries.length ? industries.join(", ") : "—"}</div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="expertise">Expertise you can offer (comma separated)</Label>
-            <Input id="expertise" name="expertise" placeholder="Resume Review, Networking, Interview Prep" defaultValue={defaultExpertise} />
-          </div>
-          <div className="flex items-end gap-2">
-            <input id="contactPermission" name="contactPermission" type="checkbox" defaultChecked={!!me.contactPermission} />
-            <Label htmlFor="contactPermission">I’m happy to be contacted to help</Label>
-          </div>
-        </div>
+      <div className="space-y-1">
+        <Label>Company</Label>
+        <div>{me.company ?? "—"}</div>
+      </div>
 
-        <div>
-          <Label htmlFor="location">Location</Label>
-          <Input id="location" name="location" defaultValue={me.location ?? ""} />
-        </div>
+      <div className="space-y-1">
+        <Label>Location</Label>
+        <div>{me.location ?? "—"}</div>
+      </div>
 
-        <div>
-          <Label htmlFor="priorExperience">Prior experience</Label>
-          <textarea id="priorExperience" name="priorExperience" className="w-full rounded-md border p-2 min-h-[80px]" defaultValue={me.priorExperience ?? ""} />
-        </div>
-
-        <div>
-          <Label htmlFor="bio">Bio</Label>
-          <textarea id="bio" name="bio" className="w-full rounded-md border p-2 min-h-[100px]" defaultValue={me.bio ?? ""} />
-        </div>
-
-        <div>
-          <Label htmlFor="teamAffiliation">Team affiliation</Label>
-          <Input id="teamAffiliation" name="teamAffiliation" placeholder="Team Alum" defaultValue={me.teamAffiliation ?? ""} />
-        </div>
-
-        <div className="pt-2">
-          <button type="submit" className="border rounded-xl px-4 py-2 hover:bg-muted">
-            Save changes
-          </button>
-        </div>
-      </form>
+      <div className="pt-4 flex gap-3">
+        <a href="/api/auth/signout" className="text-blue-600 underline">Sign out</a>
+        <Link href="/directory" className="text-blue-600 underline">Back to Directory</Link>
+      </div>
     </main>
   );
 }
