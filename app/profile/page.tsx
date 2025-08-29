@@ -1,42 +1,43 @@
-import { getServerSession } from "next-auth";
 import Link from "next/link";
-import { prisma } from "@/lib/db";
+import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
+import { prisma } from "@/lib/db";
 
-export default async function ProfilePage() {
+export default async function MyProfilePage() {
+  // Grab the session safely; works even if no user is signed in
   const session = await getServerSession(authOptions);
 
-  // Not signed in → simple prompt
+  // If signed out, show a friendly prompt (no server error)
   if (!session?.user?.email) {
     return (
       <main className="max-w-2xl mx-auto py-12 space-y-4">
         <h1 className="text-2xl font-bold">My Profile</h1>
-        <p>You’re not signed in.</p>
-        <div className="flex gap-3">
-          <Link href="/api/auth/signin" className="text-blue-600 underline">
-            Sign in
-          </Link>
-          <Link href="/directory" className="text-blue-600 underline">
-            Back to Directory
-          </Link>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          You need to sign in to view your profile.
+        </p>
+        <Link href="/api/auth/signin" className="text-blue-600 underline">
+          Sign in
+        </Link>
       </main>
     );
   }
 
-  // Look up the logged-in user's Person record by email
-  const me = await prisma.person.findFirst({
+  // Try to find your Person record by email
+  const me = await prisma.person.findUnique({
     where: { email: session.user.email },
   });
 
+  // If the user is signed in but we don't have a Person row yet
   if (!me) {
     return (
       <main className="max-w-2xl mx-auto py-12 space-y-4">
         <h1 className="text-2xl font-bold">My Profile</h1>
-        <p>No profile found for {session.user.email}.</p>
-        <div className="flex gap-3">
+        <p className="text-sm text-muted-foreground">
+          No profile found for <strong>{session.user.email}</strong>.
+        </p>
+        <div className="pt-4 flex gap-3">
           <Link href="/directory" className="text-blue-600 underline">
-            Back to Directory
+            ← Back to Directory
           </Link>
           <Link href="/api/auth/signout" className="text-blue-600 underline">
             Sign out
@@ -46,7 +47,11 @@ export default async function ProfilePage() {
     );
   }
 
-  const industries = (me.industries as unknown as string[] | null) ?? [];
+  // Helper to render industries from Json
+  const industries =
+    Array.isArray(me.industries)
+      ? (me.industries as unknown as string[])
+      : [];
 
   return (
     <main className="max-w-2xl mx-auto py-12 space-y-4">
@@ -54,9 +59,7 @@ export default async function ProfilePage() {
 
       <div className="space-y-1">
         <div className="font-medium">Name</div>
-        <div>
-          {me.firstName} {me.lastName}
-        </div>
+        <div>{me.firstName} {me.lastName}</div>
       </div>
 
       <div className="space-y-1">
@@ -85,12 +88,8 @@ export default async function ProfilePage() {
       </div>
 
       <div className="pt-4 flex gap-3">
-        <Link href="/api/auth/signout" className="text-blue-600 underline">
-          Sign out
-        </Link>
-        <Link href="/directory" className="text-blue-600 underline">
-          Back to Directory
-        </Link>
+        <Link href="/api/auth/signout" className="text-blue-600 underline">Sign out</Link>
+        <Link href="/directory" className="text-blue-600 underline">Back to Directory</Link>
       </div>
     </main>
   );
