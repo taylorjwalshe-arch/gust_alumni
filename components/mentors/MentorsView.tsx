@@ -14,21 +14,22 @@ type MentorsResponse = {
 const fetcher = (url: string) => fetch(url).then((r) => r.json() as Promise<MentorsResponse>);
 
 export default function MentorsView() {
+  // 1) Data hook (always called)
   const { data, isLoading, error } = useSWR<MentorsResponse>('/api/mentors?pageSize=200', fetcher);
+
+  // 2) Local state hooks (always called)
   const [q, setQ] = useState('');
   const [industriesSel, setIndustriesSel] = useState<string[]>([]);
   const [expertiseSel, setExpertiseSel] = useState<string[]>([]);
 
-  if (error) return <div className="p-6 text-red-600">Failed to load mentors.</div>;
-  if (isLoading || !data) return <div className="p-6">Loading mentors…</div>;
+  // 3) Derivations with useMemo (always called)
+  const items: MentorListItem[] = useMemo(() => (data?.items ?? []) as MentorListItem[], [data]);
 
-  const items = data.items ?? [];
-
-  // Build facet lists from the loaded data
   const { allIndustries, allExpertise } = useMemo(() => {
     const ind = new Set<string>();
     const exp = new Set<string>();
-    for (const m of items) {
+    const list = (data?.items ?? []) as MentorListItem[];
+    for (const m of list) {
       (m.industries ?? []).forEach((x) => x && ind.add(x));
       (m.expertise ?? []).forEach((x) => x && exp.add(x));
     }
@@ -36,20 +37,26 @@ export default function MentorsView() {
       allIndustries: Array.from(ind).sort(),
       allExpertise: Array.from(exp).sort(),
     };
-  }, [items]);
+  }, [data]);
 
-  // Apply client-side filtering
-  const visible = items.filter((m) => {
-    const name = `${m.firstName ?? ''} ${m.lastName ?? ''}`.toLowerCase();
-    const qOk = !q || name.includes(q.toLowerCase());
-    const indOk =
-      industriesSel.length === 0 ||
-      (m.industries ?? []).some((x) => industriesSel.includes(x));
-    const expOk =
-      expertiseSel.length === 0 ||
-      (m.expertise ?? []).some((x) => expertiseSel.includes(x));
-    return qOk && indOk && expOk;
-  });
+  const visible = useMemo(() => {
+    const qLower = q.toLowerCase();
+    return items.filter((m) => {
+      const name = `${m.firstName ?? ''} ${m.lastName ?? ''}`.toLowerCase();
+      const qOk = !qLower || name.includes(qLower);
+      const indOk =
+        industriesSel.length === 0 ||
+        (m.industries ?? []).some((x) => industriesSel.includes(x));
+      const expOk =
+        expertiseSel.length === 0 ||
+        (m.expertise ?? []).some((x) => expertiseSel.includes(x));
+      return qOk && indOk && expOk;
+    });
+  }, [items, q, industriesSel, expertiseSel]);
+
+  // 4) Now we can early-return (after all hooks have run)
+  if (error) return <div className="p-6 text-red-600">Failed to load mentors.</div>;
+  if (isLoading || !data) return <div className="p-6">Loading mentors…</div>;
 
   return (
     <div className="p-6 space-y-4">
