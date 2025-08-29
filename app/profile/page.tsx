@@ -1,20 +1,20 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { getServerSession } from "next-auth/next";
-import type { Session, NextAuthOptions } from "next-auth";
-import { authOptions } from "@/auth";
-import type { Person } from "@prisma/client";
+import { getServerSession } from "next-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function MyProfilePage() {
-  // 1) Get the session (fully typed; no "any")
-  const session: Session | null = await getServerSession(
-    authOptions as NextAuthOptions
-  );
+  // 1) Get session safely — NO import from "@/auth"
+  let session: import("next-auth").Session | null = null;
+  try {
+    session = await getServerSession();
+  } catch {
+    session = null;
+  }
 
-  // 2) Signed-out = gentle page, no crashes
+  // 2) Signed-out experience (never throws)
   if (!session?.user) {
     return (
       <main className="max-w-2xl mx-auto py-12 space-y-4">
@@ -29,12 +29,23 @@ export default async function MyProfilePage() {
     );
   }
 
-  // 3) Try by userId (best), then fall back to email — use findFirst to avoid Prisma
-  //    throwing if the field is not unique or is null.
-  const userId = (session.user as unknown as { id?: string })?.id ?? undefined;
+  // 3) Find the Person by userId (best) or email (fallback) using findFirst
+  const userId = (session.user as { id?: string } | undefined)?.id;
   const email = session.user.email ?? undefined;
 
-  let me: Person | null = null;
+  let me:
+    | {
+        id: string;
+        firstName: string;
+        lastName: string;
+        email: string | null;
+        role: string;
+        industries: unknown;
+        company: string | null;
+        location: string | null;
+      }
+    | null = null;
+
   try {
     me = await prisma.person.findFirst({
       where: {
@@ -43,9 +54,18 @@ export default async function MyProfilePage() {
           ...(email ? [{ email }] : []),
         ],
       },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true,
+        industries: true,
+        company: true,
+        location: true,
+      },
     });
   } catch {
-    // swallow DB errors and render a safe message below
     me = null;
   }
 
@@ -54,8 +74,7 @@ export default async function MyProfilePage() {
       <main className="max-w-2xl mx-auto py-12 space-y-4">
         <h1 className="text-2xl font-bold">My Profile</h1>
         <p className="text-sm text-muted-foreground">
-          We couldn’t find a profile for{" "}
-          <strong>{email ?? "this account"}</strong>.
+          We couldn’t find a profile for {email ?? "this account"}.
         </p>
         <div className="pt-4 flex gap-3">
           <Link href="/directory" className="text-blue-600 underline">
