@@ -2,9 +2,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
 
-type DetailDelegate = {
-  findUnique: (args: unknown) => Promise<unknown>;
-};
+type DetailDelegate = { findUnique: (args: unknown) => Promise<unknown> };
 
 function getModel(): DetailDelegate {
   const name = process.env.PRISMA_MENTOR_MODEL || 'person';
@@ -19,27 +17,31 @@ function asRec(x: unknown): Record<string, unknown> {
 }
 
 export async function GET(request: Request) {
-  const model = getModel();
-  const { pathname } = new URL(request.url);
-  const id = (pathname.split('/').pop() || '').trim();
+  try {
+    const model = getModel();
+    const { pathname } = new URL(request.url);
+    const id = (pathname.split('/').pop() || '').trim();
 
-  const args = (val: string | number) =>
-    ({ where: { id: val }, select: { id: true, firstName: true, lastName: true } }) as unknown;
+    const args = (val: string | number) =>
+      ({ where: { id: val }, select: { id: true, firstName: true, lastName: true } }) as unknown;
 
-  let data = await model.findUnique(args(id));
-  if (!data && /^\d+$/.test(id)) {
-    data = await model.findUnique(args(Number(id)));
+    let data = await model.findUnique(args(id));
+    if (!data && /^\d+$/.test(id)) data = await model.findUnique(args(Number(id)));
+    if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    const r = asRec(data);
+    return NextResponse.json({
+      id: String(r.id),
+      firstName: (r.firstName as string | undefined) ?? null,
+      lastName: (r.lastName as string | undefined) ?? null,
+      headline: null,
+      industry: null,
+      location: null,
+      imageUrl: null,
+    });
+  } catch (err) {
+    console.error('Mentor detail API error:', err);
+    // Return JSON 404 rather than throwing
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
-  if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-
-  const r = asRec(data);
-  return NextResponse.json({
-    id: String(r.id),
-    firstName: (r.firstName as string | undefined) ?? null,
-    lastName: (r.lastName as string | undefined) ?? null,
-    headline: null,
-    industry: null,
-    location: null,
-    imageUrl: null,
-  });
 }

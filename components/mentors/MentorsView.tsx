@@ -24,11 +24,15 @@ export default function MentorsView() {
       <h1 className="text-2xl font-semibold">Mentors</h1>
       <div className="text-sm text-gray-500">{data.total} mentors</div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {items.map((m) => (
-          <MentorCard key={m.id} m={m} />
-        ))}
-      </div>
+      {items.length === 0 ? (
+        <div className="text-gray-500">No mentors yet. Once data is seeded, you’ll see cards here.</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {items.map((m) => (
+            <MentorCard key={m.id} m={m} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
