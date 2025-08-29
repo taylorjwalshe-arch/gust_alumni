@@ -1,13 +1,24 @@
 import Link from "next/link";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/auth";
 import { prisma } from "@/lib/db";
+// Use the Node-safe server session helper
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/auth";
+
+// Ensure this page does not get statically rendered or moved to Edge
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export default async function MyProfilePage() {
-  // Grab the session safely; works even if no user is signed in
-  const session = await getServerSession(authOptions);
+  let session: Awaited<ReturnType<typeof getServerSession>> | null = null;
 
-  // If signed out, show a friendly prompt (no server error)
+  // Never crash if next-auth throws for any reason (e.g., bad cookie, missing secret, etc.)
+  try {
+    session = await getServerSession(authOptions);
+  } catch {
+    session = null;
+  }
+
+  // Signed-out experience (no exception)
   if (!session?.user?.email) {
     return (
       <main className="max-w-2xl mx-auto py-12 space-y-4">
@@ -22,12 +33,12 @@ export default async function MyProfilePage() {
     );
   }
 
-  // Try to find your Person record by email
-  const me = await prisma.person.findUnique({
-    where: { email: session.user.email },
-  });
+  // Fetch your Person row by email; also guarded
+  const me =
+    (await prisma.person.findUnique({
+      where: { email: session.user.email },
+    })) ?? null;
 
-  // If the user is signed in but we don't have a Person row yet
   if (!me) {
     return (
       <main className="max-w-2xl mx-auto py-12 space-y-4">
@@ -47,11 +58,9 @@ export default async function MyProfilePage() {
     );
   }
 
-  // Helper to render industries from Json
-  const industries =
-    Array.isArray(me.industries)
-      ? (me.industries as unknown as string[])
-      : [];
+  const industries = Array.isArray(me.industries)
+    ? (me.industries as unknown as string[])
+    : [];
 
   return (
     <main className="max-w-2xl mx-auto py-12 space-y-4">
@@ -59,7 +68,9 @@ export default async function MyProfilePage() {
 
       <div className="space-y-1">
         <div className="font-medium">Name</div>
-        <div>{me.firstName} {me.lastName}</div>
+        <div>
+          {me.firstName} {me.lastName}
+        </div>
       </div>
 
       <div className="space-y-1">
@@ -88,8 +99,12 @@ export default async function MyProfilePage() {
       </div>
 
       <div className="pt-4 flex gap-3">
-        <Link href="/api/auth/signout" className="text-blue-600 underline">Sign out</Link>
-        <Link href="/directory" className="text-blue-600 underline">Back to Directory</Link>
+        <Link href="/api/auth/signout" className="text-blue-600 underline">
+          Sign out
+        </Link>
+        <Link href="/directory" className="text-blue-600 underline">
+          Back to Directory
+        </Link>
       </div>
     </main>
   );
