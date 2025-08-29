@@ -5,7 +5,14 @@ import { prisma } from "@/lib/db";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
-  providers: [ GitHub({ clientId: process.env.GITHUB_ID!, clientSecret: process.env.GITHUB_SECRET! }) ],
+  providers: [
+    GitHub({
+      clientId: process.env.GITHUB_ID!,
+      clientSecret: process.env.GITHUB_SECRET!,
+    }),
+  ],
+  // Ensure a secret is set (NEXTAUTH_SECRET in env on Vercel)
+  secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "database" },
   callbacks: {
     async session({ session, user }) {
