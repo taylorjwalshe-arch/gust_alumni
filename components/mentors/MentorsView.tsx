@@ -1,16 +1,7 @@
 // components/mentors/MentorsView.tsx
 'use client';
 import useSWR from 'swr';
-
-type MentorListItem = {
-  id: string;
-  firstName: string | null;
-  lastName: string | null;
-  headline: string | null;
-  industry: string | null;
-  location: string | null;
-  imageUrl: string | null;
-};
+import { MentorCard, type MentorListItem } from './MentorCard';
 
 type MentorsResponse = {
   items: MentorListItem[];
@@ -31,14 +22,13 @@ export default function MentorsView() {
   return (
     <div className="p-6 space-y-4">
       <h1 className="text-2xl font-semibold">Mentors</h1>
-      <div className="text-sm text-muted-foreground">{data.total} mentors</div>
-      <ul className="list-disc pl-6">
+      <div className="text-sm text-gray-500">{data.total} mentors</div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {items.map((m) => (
-          <li key={m.id}>
-            {(m.firstName ?? '') + ' ' + (m.lastName ?? '')} — {m.headline ?? 'No headline'}
-          </li>
+          <MentorCard key={m.id} m={m} />
         ))}
-      </ul>
+      </div>
     </div>
   );
 }

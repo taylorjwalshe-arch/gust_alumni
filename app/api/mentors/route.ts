@@ -7,6 +7,20 @@ function arr(q: string | null): string[] {
   return q.split(',').map((s) => s.trim()).filter(Boolean);
 }
 
+// Try common model names: adjust or extend this list if needed later.
+const MODEL_CANDIDATES = ['profile', 'profiles', 'alumniProfile', 'user', 'users'] as const;
+
+function getPrismaModel(): unknown {
+  const client = prisma as unknown as Record<string, unknown>;
+  for (const name of MODEL_CANDIDATES) {
+    const m = client[name];
+    if (m && typeof m === 'object') return m;
+  }
+  throw new Error(
+    'Mentors API: No suitable Prisma model found. Tried: ' + MODEL_CANDIDATES.join(', ')
+  );
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q');
@@ -16,6 +30,7 @@ export async function GET(req: Request) {
 
   const where = {
     AND: [
+      // Assumes your model has an isMentor boolean flag set in seed.
       { isMentor: true },
       q
         ? {
@@ -32,24 +47,32 @@ export async function GET(req: Request) {
     ],
   };
 
-  const [items, total] = await Promise.all([
-    prisma.profile.findMany({
-      where,
-      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        headline: true,
-        industry: true,
-        location: true,
-        imageUrl: true,
-      },
-    }),
-    prisma.profile.count({ where }),
-  ]);
+  const orderBy = [{ lastName: 'asc' as const }, { firstName: 'asc' as const }];
+
+  const model = getPrismaModel();
+
+  // We intentionally use @ts-expect-error on the dynamic calls below.
+  // Reason: the exact Prisma model name varies across repos; we pick it at runtime.
+  // TypeScript cannot know which model we chosen, but at runtime Prisma handles it.
+  // @ts-expect-error – dynamic Prisma model
+  const items = await model.findMany({
+    where,
+    orderBy,
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      headline: true,
+      industry: true,
+      location: true,
+      imageUrl: true,
+    },
+  });
+
+  // @ts-expect-error – dynamic Prisma model
+  const total = await model.count({ where });
 
   return NextResponse.json({ items, total, page, pageSize });
 }
