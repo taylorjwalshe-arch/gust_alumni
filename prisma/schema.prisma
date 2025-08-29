@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/* ---- NextAuth tables ---- */
+model User {
+  id            String   @id @default(cuid())
+  name          String?
+  email         String?  @unique
+  emailVerified DateTime?
+  image         String?
+
+  accounts Account[]
+  sessions Session[]
+
+  person   Person?
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+/* ---- Survey-aligned profile ---- */
+model Person {
+  id        String  @id @default(cuid())
+
+  // Link to auth user
+  userId    String? @unique
+  user      User?   @relation(fields: [userId], references: [id])
+
+  // Core
+  firstName String
+  lastName  String
+  email     String?  @unique
+  role      String
+
+  // Survey fields
+  gradYear          Int?
+  industries        Json?   @default("[]") // array<string>
+  company           String?
+  location          String?
+  priorExperience   String?
+  expertise         Json?   @default("[]") // array<string>
+  contactPermission Boolean?
+  bio               String?
+  teamAffiliation   String?
+}
