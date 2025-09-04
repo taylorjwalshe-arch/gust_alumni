@@ -23,16 +23,11 @@ const SAFE_EMPTY: ApiPerson = {
   imageUrl: null,
 };
 
-export async function GET(
-  _req: Request,
-  ctx: { params: { id?: string } }
-) {
+export async function GET(_req: Request, ctx: { params: { id?: string } }) {
   try {
     const idParam = ctx?.params?.id ?? "";
     if (!idParam) return NextResponse.json(SAFE_EMPTY);
 
-    // Dynamic import; build won’t fail if Prisma isn’t installed
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { PrismaClient } = await import("@prisma/client").catch(() => ({ PrismaClient: null as unknown as any }));
     if (!PrismaClient) return NextResponse.json(SAFE_EMPTY);
 
@@ -46,8 +41,7 @@ export async function GET(
     const match = rows.find((r) => String(r?.id) === String(idParam));
     if (!match) return NextResponse.json(SAFE_EMPTY);
 
-    const id =
-      typeof match.id === "string" || typeof match.id === "number" ? (match.id as string | number) : null;
+    const id = typeof match.id === "string" || typeof match.id === "number" ? (match.id as string | number) : null;
     const firstName = typeof match.firstName === "string" ? (match.firstName as string) : null;
     const lastName = typeof match.lastName === "string" ? (match.lastName as string) : null;
     const industries = Array.isArray((match as { industries?: unknown }).industries)
@@ -56,15 +50,12 @@ export async function GET(
     const expertise = Array.isArray((match as { expertise?: unknown }).expertise)
       ? ((match as { expertise?: unknown[] }).expertise || []).map(String)
       : null;
-    const location = typeof (match as { location?: unknown }).location === "string"
-      ? ((match as { location: string }).location)
-      : null;
-    const imageUrl = typeof (match as { imageUrl?: unknown }).imageUrl === "string"
-      ? ((match as { imageUrl: string }).imageUrl)
-      : null;
+    const location =
+      typeof (match as { location?: unknown }).location === "string" ? ((match as { location: string }).location) : null;
+    const imageUrl =
+      typeof (match as { imageUrl?: unknown }).imageUrl === "string" ? ((match as { imageUrl: string }).imageUrl) : null;
 
-    const payload: ApiPerson = { id, firstName, lastName, industries, expertise, location, imageUrl };
-    return NextResponse.json(payload);
+    return NextResponse.json({ id, firstName, lastName, industries, expertise, location, imageUrl } as ApiPerson);
   } catch {
     return NextResponse.json(SAFE_EMPTY);
   }

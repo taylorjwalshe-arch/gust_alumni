@@ -10,8 +10,6 @@ const SAFE_EMPTY: Out[] = [];
 
 async function tryFetch(): Promise<Out[]> {
   try {
-    // Try dynamic Prisma import; if missing, return empty
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { PrismaClient } = await import("@prisma/client").catch(() => ({ PrismaClient: null as unknown as any }));
     if (!PrismaClient) return SAFE_EMPTY;
 
@@ -25,8 +23,8 @@ async function tryFetch(): Promise<Out[]> {
       .filter((r) => r && (typeof r.id === "string" || typeof r.id === "number"))
       .map((r) => ({
         id: r.id as string | number,
-        firstName: (typeof r.firstName === "string" ? r.firstName : null),
-        lastName: (typeof r.lastName === "string" ? r.lastName : null),
+        firstName: typeof r.firstName === "string" ? r.firstName : null,
+        lastName: typeof r.lastName === "string" ? r.lastName : null,
       }));
   } catch {
     return SAFE_EMPTY;
