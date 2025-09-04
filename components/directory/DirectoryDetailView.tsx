@@ -1,75 +1,130 @@
-// components/directory/DirectoryDetailView.tsx
 'use client';
-import useSWR from 'swr';
-import Link from 'next/link';
 
-type DirectoryDetail = {
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+
+type Person = {
   id: string;
   firstName: string | null;
   lastName: string | null;
   industries: string[] | null;
-  expertise: string[] | null;
   location: string | null;
-  imageUrl: string | null;
 };
 
-const fetcher = (u: string) => fetch(u).then(r => r.json() as Promise<DirectoryDetail>);
+function toPerson(input: unknown): Person | null {
+  const r = (input as Record<string, unknown>) || {};
+  const idRaw = r.id;
+  const firstName = typeof r.firstName === 'string' ? r.firstName : null;
+  const lastName = typeof r.lastName === 'string' ? r.lastName : null;
+  const industries = Array.isArray(r.industries) ? (r.industries as string[]) : null;
+  const location = typeof r.location === 'string' ? (r.location as string) : null;
 
-export default function DirectoryDetailView({ id }: { id: string }) {
-  const { data, isLoading, error } = useSWR<DirectoryDetail>(`/api/directory/${id}`, fetcher);
+  if (typeof idRaw === 'string' || typeof idRaw === 'number') {
+    return {
+      id: String(idRaw),
+      firstName,
+      lastName,
+      industries,
+      location,
+    };
+  }
+  return null;
+}
 
-  if (error) return <div className="p-6 text-red-600">Failed to load profile.</div>;
-  if (isLoading || !data) return <div className="p-6">Loading…</div>;
+export default function DirectoryDetailView() {
+  const params = useParams<{ id: string }>();
+  const id = String(params?.id ?? '');
+  const router = useRouter();
 
-  const name = `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim() || 'Unnamed';
+  const [person, setPerson] = useState<Person | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/directory/${id}`, { cache: 'no-store' });
+        const json = await res.json();
+        const candidate =
+          toPerson((json && (json.item as unknown)) ?? json) ?? null;
+        if (!cancelled) setPerson(candidate);
+      } catch {
+        if (!cancelled) setPerson(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (loading) return <div>Loading…</div>;
+  if (!person) {
+    return (
+      <div style={{ display: 'grid', gap: 12 }}>
+        <button
+          onClick={() => router.push('/directory')}
+          style={{
+            width: 'fit-content',
+            padding: '6px 10px',
+            borderRadius: 8,
+            border: '1px solid #e5e7eb',
+            background: 'white',
+            cursor: 'pointer',
+          }}
+        >
+          ← Back to Directory
+        </button>
+        <div>Not found.</div>
+      </div>
+    );
+  }
+
+  const name =
+    [person.firstName, person.lastName].filter(Boolean).join(' ').trim() || 'Unnamed';
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        {data.imageUrl ? (
-          <img src={data.imageUrl} alt={name} className="h-16 w-16 rounded-full object-cover bg-gray-100" />
-        ) : (
-          <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center text-lg font-semibold text-gray-600">
-            {(data.firstName?.[0] ?? '') + (data.lastName?.[0] ?? '')}
-          </div>
-        )}
-        <div>
-          <h1 className="text-2xl font-semibold">{name}</h1>
-          <div className="text-sm text-gray-500">{data.location ?? 'Location not provided'}</div>
+    <div style={{ display: 'grid', gap: 16 }}>
+      <button
+        onClick={() => router.push('/directory')}
+        style={{
+          width: 'fit-content',
+          padding: '6px 10px',
+          borderRadius: 8,
+          border: '1px solid #e5e7eb',
+          background: 'white',
+          cursor: 'pointer',
+        }}
+      >
+        ← Back to Directory
+      </button>
+
+      <div style={{ fontSize: 22, fontWeight: 700 }}>{name}</div>
+
+      {Array.isArray(person.industries) && person.industries.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {person.industries.map((t, i) => (
+            <span
+              key={`ind-${i}`}
+              style={{
+                fontSize: 12,
+                padding: '2px 8px',
+                borderRadius: 999,
+                background: '#f3f4f6',
+                color: '#374151',
+                border: '1px solid #e5e7eb',
+              }}
+            >
+              {t}
+            </span>
+          ))}
         </div>
-      </div>
+      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <section className="rounded-2xl border p-4">
-          <h2 className="font-medium mb-2">Industries</h2>
-          {data.industries?.length ? (
-            <ul className="flex flex-wrap gap-2">
-              {data.industries.map((x) => (
-                <li key={x} className="px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs">{x}</li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-sm text-gray-500">No industries listed.</div>
-          )}
-        </section>
-
-        <section className="rounded-2xl border p-4">
-          <h2 className="font-medium mb-2">Expertise</h2>
-          {data.expertise?.length ? (
-            <ul className="flex flex-wrap gap-2">
-              {data.expertise.map((x) => (
-                <li key={x} className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs">{x}</li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-sm text-gray-500">No expertise listed.</div>
-          )}
-        </section>
-      </div>
-
-      <div>
-        <Link href="/directory" className="text-blue-600 underline">← Back to directory</Link>
-      </div>
+      {person.location && (
+        <div style={{ color: '#6b7280' }}>{person.location}</div>
+      )}
     </div>
   );
 }
