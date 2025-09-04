@@ -10,7 +10,15 @@ type ApiListItem = {
   lastName: string | null;
 };
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = async (url: string): Promise<ApiListItem[]> => {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    return await r.json();
+  } catch {
+    return [];
+  }
+};
 
 export default function DirectoryView() {
   const { data, isLoading } = useSWR<ApiListItem[]>("/api/directory", fetcher, {

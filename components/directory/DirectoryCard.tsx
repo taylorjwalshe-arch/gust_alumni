@@ -30,20 +30,13 @@ export default function DirectoryCard({ item }: { item: DirectoryListItem }) {
   const href = `/directory/${encodeURIComponent(String(item.id))}`;
 
   return (
-    <Link
-      href={href}
-      className="group rounded-2xl border border-gray-200 hover:border-blue-300 transition-colors p-4 flex items-center gap-3"
-    >
-      <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold text-gray-600 ring-1 ring-gray-200">
-        {mono}
-      </div>
+    <Link href={href} className="group rounded-2xl border border-gray-200 hover:border-blue-300 transition-colors p-4 flex items-center gap-3">
+      <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold text-gray-600 ring-1 ring-gray-200">{mono}</div>
       <div className="flex-1">
         <div className="font-medium group-hover:text-blue-700">{name}</div>
         <div className="text-xs text-gray-500">View profile</div>
       </div>
-      <div aria-hidden className="text-gray-300 group-hover:text-blue-400 transition-colors">
-        →
-      </div>
+      <div aria-hidden className="text-gray-300 group-hover:text-blue-400 transition-colors">→</div>
     </Link>
   );
 }

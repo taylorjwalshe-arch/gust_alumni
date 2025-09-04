@@ -15,7 +15,15 @@ type ApiPerson = {
   imageUrl: string | null;
 };
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = async (url: string): Promise<ApiPerson> => {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return { id: null, firstName: null, lastName: null, industries: null, expertise: null, location: null, imageUrl: null };
+    return await r.json();
+  } catch {
+    return { id: null, firstName: null, lastName: null, industries: null, expertise: null, location: null, imageUrl: null };
+  }
+};
 
 function initials(firstName: string | null, lastName: string | null) {
   const a = (firstName || "").trim();
@@ -45,9 +53,7 @@ export default function DirectoryDetailView() {
   if (!id) {
     return (
       <div className="p-6">
-        <Link href="/directory" className="text-blue-600 hover:underline">
-          ← Back to Directory
-        </Link>
+        <Link href="/directory" className="text-blue-600 hover:underline">← Back to Directory</Link>
         <div className="mt-6 text-sm text-gray-600">Invalid person ID.</div>
       </div>
     );
@@ -69,21 +75,14 @@ export default function DirectoryDetailView() {
   }
 
   const person = data as ApiPerson | undefined;
-
-  const showNotFound =
-    !person ||
-    (person.id === null && person.firstName === null && person.lastName === null);
+  const showNotFound = !person || (person.id === null && person.firstName === null && person.lastName === null);
 
   if (showNotFound) {
     return (
       <div className="p-6">
-        <Link href="/directory" className="text-blue-600 hover:underline">
-          ← Back to Directory
-        </Link>
+        <Link href="/directory" className="text-blue-600 hover:underline">← Back to Directory</Link>
         <h1 className="mt-6 text-xl font-semibold">Person not found</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          We couldn’t find a record for this ID. It may have been removed.
-        </p>
+        <p className="mt-2 text-sm text-gray-600">We couldn’t find a record for this ID. It may have been removed.</p>
       </div>
     );
   }
@@ -93,21 +92,14 @@ export default function DirectoryDetailView() {
 
   return (
     <div className="p-6 max-w-3xl">
-      <Link href="/directory" className="text-blue-600 hover:underline">
-        ← Back to Directory
-      </Link>
+      <Link href="/directory" className="text-blue-600 hover:underline">← Back to Directory</Link>
 
       <div className="mt-6 flex items-center gap-4">
         {avatar ? (
-          <img
-            src={avatar}
-            alt={name}
-            className="h-20 w-20 rounded-full object-cover ring-2 ring-gray-200"
-          />
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={avatar} alt={name} className="h-20 w-20 rounded-full object-cover ring-2 ring-gray-200" />
         ) : (
-          <div className="h-20 w-20 rounded-full bg-gray-100 ring-2 ring-gray-200 flex items-center justify-center text-lg font-semibold text-gray-600">
-            {mono}
-          </div>
+          <div className="h-20 w-20 rounded-full bg-gray-100 ring-2 ring-gray-200 flex items-center justify-center text-lg font-semibold text-gray-600">{mono}</div>
         )}
         <div>
           <h1 className="text-2xl font-semibold">{name}</h1>
@@ -125,12 +117,7 @@ export default function DirectoryDetailView() {
           {person?.industries?.length ? (
             <ul className="flex flex-wrap gap-2">
               {person.industries.map((ind) => (
-                <li
-                  key={ind}
-                  className="px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs"
-                >
-                  {ind}
-                </li>
+                <li key={ind} className="px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs">{ind}</li>
               ))}
             </ul>
           ) : (
@@ -143,12 +130,7 @@ export default function DirectoryDetailView() {
           {person?.expertise?.length ? (
             <ul className="flex flex-wrap gap-2">
               {person.expertise.map((skill) => (
-                <li
-                  key={skill}
-                  className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs"
-                >
-                  {skill}
-                </li>
+                <li key={skill} className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs">{skill}</li>
               ))}
             </ul>
           ) : (
