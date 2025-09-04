@@ -7,6 +7,14 @@ function cap(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
+type SafeItem = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  industries: string[] | null;
+  location: string | null;
+};
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -17,8 +25,8 @@ export async function GET(req: NextRequest) {
     const where = q
       ? {
           OR: [
-            { firstName: { contains: q, mode: 'insensitive' } },
-            { lastName: { contains: q, mode: 'insensitive' } },
+            { firstName: { contains: q, mode: 'insensitive' as const } },
+            { lastName: { contains: q, mode: 'insensitive' as const } },
           ],
         }
       : {};
@@ -30,15 +38,15 @@ export async function GET(req: NextRequest) {
       total = 0;
     }
 
-    const richSelect: any = {
+    const richSelect = {
       id: true,
       firstName: true,
       lastName: true,
-      industries: true, // optional
-      location: true,   // optional
-    };
+      industries: true,
+      location: true,
+    } as const;
 
-    let rows: any[] = [];
+    let rows: unknown[] = [];
     try {
       rows = await prisma.person.findMany({
         where,
@@ -55,12 +63,16 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const items = rows.map((p: any) => ({
-      id: String(p.id),
-      firstName: p.firstName ?? null,
-      lastName: p.lastName ?? null,
-      industries: Array.isArray(p.industries) ? (p.industries as string[]) : null,
-      location: typeof p.location === 'string' ? (p.location as string) : null,
+    const items: SafeItem[] = (rows as Array<Record<string, unknown>>).map((p) => ({
+      id: String(p.id as string | number),
+      firstName: (p.firstName as string | null) ?? null,
+      lastName: (p.lastName as string | null) ?? null,
+      industries: Array.isArray((p as Record<string, unknown>).industries)
+        ? ((p.industries as unknown[]) as string[])
+        : null,
+      location: typeof (p as Record<string, unknown>).location === 'string'
+        ? (p.location as string)
+        : null,
     }));
 
     return NextResponse.json({ items, total, page: 1, pageSize: take });
