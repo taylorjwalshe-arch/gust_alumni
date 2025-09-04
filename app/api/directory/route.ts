@@ -1,44 +1,70 @@
-// app/api/directory/route.ts
-import { NextResponse } from 'next/server';
-import { prisma } from '../../../lib/prisma';
+import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
 
-type ListDelegate = { findMany: (args: unknown) => Promise<unknown>; count: (args?: unknown) => Promise<number> };
+const prisma = new PrismaClient();
 
-function getModel(): ListDelegate {
-  const name = process.env.PRISMA_DIRECTORY_MODEL || process.env.PRISMA_MENTOR_MODEL || 'person';
-  const anyPrisma = prisma as unknown as Record<string, unknown>;
-  const model = anyPrisma[name];
-  if (!model) throw new Error(`PRISMA_DIRECTORY_MODEL='${name}' not found on prisma client.`);
-  return model as unknown as ListDelegate;
+function cap(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
 }
 
-export async function GET(request: Request) {
+export async function GET(req: NextRequest) {
   try {
-    const model = getModel();
-    const url = new URL(request.url);
-    const q = (url.searchParams.get('q') || '').toLowerCase();
-    const pageSize = Math.min(Number(url.searchParams.get('pageSize') || '500'), 500);
+    const { searchParams } = new URL(req.url);
+    const q = (searchParams.get('q') || '').trim();
+    const pageSizeParam = parseInt(searchParams.get('pageSize') || '25', 10);
+    const take = cap(Number.isFinite(pageSizeParam) ? pageSizeParam : 25, 1, 100);
 
-    const itemsUnknown = await model.findMany({
-      take: pageSize,
-      select: { id: true, firstName: true, lastName: true },
-    } as unknown);
-    const total = await model.count();
+    const where = q
+      ? {
+          OR: [
+            { firstName: { contains: q, mode: 'insensitive' } },
+            { lastName: { contains: q, mode: 'insensitive' } },
+          ],
+        }
+      : {};
 
-    const list = (Array.isArray(itemsUnknown) ? itemsUnknown : []) as Array<Record<string, unknown>>;
-    const normalized = list.map((r) => ({
-      id: String(r.id),
-      firstName: (r.firstName as string | undefined) ?? null,
-      lastName: (r.lastName as string | undefined) ?? null,
+    let total = 0;
+    try {
+      total = await prisma.person.count({ where });
+    } catch {
+      total = 0;
+    }
+
+    const richSelect: any = {
+      id: true,
+      firstName: true,
+      lastName: true,
+      industries: true, // optional
+      location: true,   // optional
+    };
+
+    let rows: any[] = [];
+    try {
+      rows = await prisma.person.findMany({
+        where,
+        take,
+        orderBy: { id: 'asc' },
+        select: richSelect,
+      });
+    } catch {
+      rows = await prisma.person.findMany({
+        where,
+        take,
+        orderBy: { id: 'asc' },
+        select: { id: true, firstName: true, lastName: true },
+      });
+    }
+
+    const items = rows.map((p: any) => ({
+      id: String(p.id),
+      firstName: p.firstName ?? null,
+      lastName: p.lastName ?? null,
+      industries: Array.isArray(p.industries) ? (p.industries as string[]) : null,
+      location: typeof p.location === 'string' ? (p.location as string) : null,
     }));
 
-    const filtered = q
-      ? normalized.filter((x) => (`${x.firstName ?? ''} ${x.lastName ?? ''}`).toLowerCase().includes(q))
-      : normalized;
-
-    return NextResponse.json({ items: filtered, total, page: 1, pageSize });
-  } catch (err) {
-    console.error('Directory API error:', err);
-    return NextResponse.json({ items: [], total: 0, page: 1, pageSize: 200, note: 'fallback-empty' });
+    return NextResponse.json({ items, total, page: 1, pageSize: take });
+  } catch {
+    return NextResponse.json({ items: [], total: 0, page: 1, pageSize: 0 }, { status: 200 });
   }
 }

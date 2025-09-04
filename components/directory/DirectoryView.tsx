@@ -1,56 +1,109 @@
-// components/directory/DirectoryView.tsx
 'use client';
-import useSWR from 'swr';
-import { useMemo, useState } from 'react';
-import { DirectoryCard, type DirectoryListItem } from './DirectoryCard';
 
-type DirectoryResponse = { items: Array<Pick<DirectoryListItem, "id" | "firstName" | "lastName">>; total: number; page: number; pageSize: number; };
-const fetcher = (u: string) => fetch(u).then(r => r.json() as Promise<DirectoryResponse>);
+import { useEffect, useMemo, useState } from 'react';
+import DirectoryCard from './DirectoryCard';
+
+type Person = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  industries: string[] | null;
+  location: string | null;
+};
+
+type ApiResponse = {
+  items: Person[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
 
 export default function DirectoryView() {
-  const { data, isLoading, error } = useSWR<DirectoryResponse>('/api/directory?pageSize=500', fetcher);
   const [q, setQ] = useState('');
+  const [data, setData] = useState<ApiResponse>({
+    items: [],
+    total: 0,
+    page: 1,
+    pageSize: 0,
+  });
+  const [loading, setLoading] = useState(false);
 
-  const list = useMemo(() => data?.items ?? [], [data]);
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return list;
-    return list.filter(p => (`${p.firstName ?? ''} ${p.lastName ?? ''}`).toLowerCase().includes(needle));
-  }, [list, q]);
+  const qs = useMemo(() => {
+    const p = new URLSearchParams();
+    if (q.trim()) p.set('q', q.trim());
+    p.set('pageSize', '100');
+    return p.toString();
+  }, [q]);
 
-  if (error) return <div className="p-6 text-red-600">Failed to load directory.</div>;
+  useEffect(() => {
+    const controller = new AbortController();
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/directory?${qs}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        const json = await res.json();
+        setData({
+          items: Array.isArray(json?.items) ? json.items : [],
+          total: Number.isFinite(json?.total) ? json.total : 0,
+          page: Number.isFinite(json?.page) ? json.page : 1,
+          pageSize: Number.isFinite(json?.pageSize) ? json.pageSize : 0,
+        });
+      } catch {
+        setData({ items: [], total: 0, page: 1, pageSize: 0 });
+      } finally {
+        setLoading(false);
+      }
+    })();
+    return () => controller.abort();
+  }, [qs]);
 
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-semibold">Directory</h1>
-      <div className="text-sm text-gray-500">{filtered.length} of {list.length}</div>
+    <div style={{ display: 'grid', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search name..."
+          aria-label="Search directory by name"
+          style={{
+            width: '100%',
+            maxWidth: 440,
+            padding: '8px 10px',
+            borderRadius: 8,
+            border: '1px solid #e5e7eb',
+          }}
+        />
+        <div style={{ color: '#6b7280', minWidth: 80, textAlign: 'right' }}>
+          {data.items.length} of {data.total}
+        </div>
+      </div>
 
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Search name…"
-        className="w-64 rounded-xl border px-3 py-2 text-sm"
-        aria-label="Search directory"
-      />
-
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-16 rounded-2xl border border-gray-200 p-4">
-              <div className="h-full w-full animate-pulse bg-gray-100 rounded-xl" />
-            </div>
+      {loading ? (
+        <div>Loading…</div>
+      ) : data.items.length === 0 ? (
+        <div>No matches.</div>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+            gap: 12,
+          }}
+        >
+          {data.items.map((p) => (
+            <DirectoryCard
+              key={p.id}
+              id={p.id}
+              firstName={p.firstName}
+              lastName={p.lastName}
+              industries={p.industries}
+              location={p.location}
+            />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
-        <div className="text-gray-500">No matches.</div>
-      ) : (
-        <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filtered.map((p) => (
-            <li key={p.id}>
-              <DirectoryCard item={{ id: String(p.id), firstName: p.firstName ?? null, lastName: p.lastName ?? null }} />
-            </li>
-          ))}
-        </ul>
       )}
     </div>
   );

@@ -1,39 +1,60 @@
-// components/directory/DirectoryCard.tsx
-'use client';
 import Link from 'next/link';
 
-export type DirectoryListItem = {
+export type DirectoryCardProps = {
   id: string;
   firstName: string | null;
   lastName: string | null;
-  location?: string | null;
-  imageUrl?: string | null;
   industries?: string[] | null;
+  location?: string | null;
 };
 
-export function DirectoryCard({ item }: { item: DirectoryListItem }) {
-  const name = `${item.firstName ?? ''} ${item.lastName ?? ''}`.trim() || 'Unnamed';
-  const mono = (item.firstName?.[0] ?? '') + (item.lastName?.[0] ?? '');
-  const avatar = item.imageUrl ?? null;
-  const tag = (item.industries && item.industries.length) ? item.industries[0] : null;
+export default function DirectoryCard({
+  id,
+  firstName,
+  lastName,
+  industries,
+  location,
+}: DirectoryCardProps) {
+  const name = [firstName, lastName].filter(Boolean).join(' ').trim() || 'Unnamed';
+  const tags = Array.isArray(industries) ? industries.slice(0, 3) : [];
 
   return (
-    <Link href={`/directory/${item.id}`} className="block">
-      <div className="rounded-2xl bg-white/5 p-4 border border-gray-200 hover:shadow-md transition">
-        <div className="flex items-center gap-3">
-          {avatar ? (
-            <img src={avatar} alt={name} className="h-10 w-10 rounded-full object-cover bg-gray-100" />
-          ) : (
-            <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold text-gray-600">
-              {mono || '—'}
-            </div>
-          )}
-          <div className="min-w-0">
-            <div className="font-medium truncate">{name}</div>
-            <div className="text-xs text-gray-500 truncate">{item.location ?? (tag ?? '—')}</div>
-          </div>
-        </div>
+    <Link
+      href={`/directory/${id}`}
+      style={{
+        display: 'block',
+        textDecoration: 'none',
+        color: 'inherit',
+        border: '1px solid #e5e7eb',
+        borderRadius: 12,
+        padding: 12,
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: tags.length > 0 ? 8 : 4 }}>
+        {name}
       </div>
+
+      {tags.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: location ? 6 : 0 }}>
+          {tags.map((t, i) => (
+            <span
+              key={`${id}-ind-${i}`}
+              style={{
+                fontSize: 12,
+                padding: '2px 8px',
+                borderRadius: 999,
+                background: '#f3f4f6',
+                color: '#374151',
+                border: '1px solid #e5e7eb',
+              }}
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {location && <div style={{ fontSize: 13, color: '#6b7280' }}>{location}</div>}
     </Link>
   );
 }
