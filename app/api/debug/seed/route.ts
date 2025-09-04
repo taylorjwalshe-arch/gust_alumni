@@ -7,15 +7,19 @@ function devOnly() {
   return process.env.NODE_ENV === 'development';
 }
 
-type Demo = Array<Record<string, unknown>>;
+type DemoRecord = Record<string, unknown>;
+type Demo = DemoRecord[];
 
-async function tryCreate(data: Demo): Promise<boolean> {
+async function createManyLoose(data: Demo): Promise<boolean> {
   try {
-    await prisma.person.createMany({
+    const delegate = prisma.person as unknown as {
+      createMany: (args: unknown) => Promise<unknown>;
+    };
+    await delegate.createMany({
       data,
-      // @ts-expect-error: skipDuplicates may not be in very old client types; safe for current prisma
+      // skipDuplicates may not exist in some client versions; we pass it loosely.
       skipDuplicates: true,
-    } as any);
+    } as unknown);
     return true;
   } catch {
     return false;
@@ -31,7 +35,7 @@ export async function GET() {
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
   try {
     if (!devOnly()) {
       return NextResponse.json(
@@ -40,9 +44,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const n = await prisma.person.count();
-    if (n > 0) {
-      return NextResponse.json({ ok: true, seeded: 0, message: 'Person already has rows; skipping.' });
+    const existing = await prisma.person.count();
+    if (existing > 0) {
+      return NextResponse.json({
+        ok: true,
+        seeded: 0,
+        message: 'Person already has rows; skipping.',
+        total: existing,
+      });
     }
 
     const demoFull: Demo = [
@@ -52,13 +61,16 @@ export async function POST(req: NextRequest) {
     ];
 
     const demoNoRole: Demo = demoFull.map((d) => {
-      const { role, ...rest } = d;
-      return rest;
+      const r = { ...d };
+      delete (r as Record<string, unknown>).role;
+      return r;
     });
 
     const demoRoleOnly: Demo = demoFull.map((d) => {
-      const { firstName, lastName, role } = d as { firstName: string; lastName: string; role?: string };
-      return role ? { firstName, lastName, role } : { firstName, lastName };
+      const { firstName, lastName } = d as { firstName: string; lastName: string };
+      const r: DemoRecord = { firstName, lastName };
+      if (typeof d.role === 'string') (r as Record<string, unknown>).role = d.role;
+      return r;
     });
 
     const demoMinimal: Demo = demoFull.map((d) => {
@@ -70,7 +82,7 @@ export async function POST(req: NextRequest) {
 
     let used = -1;
     for (let i = 0; i < variants.length; i++) {
-      const ok = await tryCreate(variants[i]);
+      const ok = await createManyLoose(variants[i]);
       if (ok) {
         used = i;
         break;
