@@ -9,11 +9,41 @@ type NormalizedJob = {
   location: string | null;
   isRequest: boolean | null;
   postedAt: string | null;
+  description: string | null;
 };
 
 type JobDetailResponse = {
   item: NormalizedJob | null;
 };
+
+function timeAgo(iso: string | null): string | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return null;
+  const diff = Date.now() - t;
+  const s = Math.floor(diff / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  const d = Math.floor(h / 24);
+  if (d > 0) return d === 1 ? "1 day ago" : `${d} days ago`;
+  if (h > 0) return h === 1 ? "1 hour ago" : `${h} hours ago`;
+  if (m > 0) return m === 1 ? "1 minute ago" : `${m} minutes ago`;
+  return "just now";
+}
+
+function asCompanyNode(text: string | null) {
+  if (!text) return <span className="text-gray-700">Unknown company</span>;
+  const t = text.trim();
+  const looksUrl = /^https?:\/\//i.test(t);
+  if (looksUrl) {
+    return (
+      <a href={t} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+        {t}
+      </a>
+    );
+  }
+  return <span className="text-gray-700">{t}</span>;
+}
 
 export default function JobDetailView() {
   const params = useParams() as Record<string, string | string[]>;
@@ -47,14 +77,14 @@ export default function JobDetailView() {
   if (!data.item) return <div className="text-sm text-gray-500">Job not found.</div>;
 
   const d = data.item;
-  const dateLabel = d.postedAt ? new Date(d.postedAt).toLocaleDateString() : null;
+  const ago = timeAgo(d.postedAt);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold">{d.title ?? "Untitled"}</h1>
-          <p className="text-gray-700">{d.company ?? "Unknown company"}</p>
+          <p className="mt-1">{asCompanyNode(d.company)}</p>
         </div>
         {d.isRequest ? (
           <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
@@ -62,8 +92,25 @@ export default function JobDetailView() {
           </span>
         ) : null}
       </div>
+
       {d.location ? <p className="text-sm text-gray-600">{d.location}</p> : null}
-      {dateLabel ? <p className="text-xs text-gray-400">Posted {dateLabel}</p> : null}
+      {ago ? <p className="text-xs text-gray-400">Posted {ago}</p> : null}
+
+      {d.description ? (
+        <div className="prose max-w-none whitespace-pre-wrap text-sm text-gray-800">{d.description}</div>
+      ) : (
+        <div className="text-sm text-gray-500">No description provided.</div>
+      )}
+
+      <div>
+        <button
+          type="button"
+          className="rounded-2xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          onClick={() => {}}
+        >
+          Contact poster
+        </button>
+      </div>
     </div>
   );
 }

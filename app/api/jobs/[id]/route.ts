@@ -8,6 +8,7 @@ type NormalizedJob = {
   location: string | null;
   isRequest: boolean | null;
   postedAt: string | null;
+  description: string | null;
 };
 
 const MODEL_ORDER = ["job", "jobs", "posting", "post", "opportunity"] as const;
@@ -48,7 +49,47 @@ function normalizeOne(row: unknown, fallbackId: string): NormalizedJob {
     const d = new Date(r.postedAt);
     postedAt = isNaN(d.getTime()) ? null : d.toISOString();
   }
-  return { id, title, company, location, isRequest, postedAt };
+  const description = typeof r.description === "string" ? r.description : null;
+  return { id, title, company, location, isRequest, postedAt, description };
+}
+
+const richWithDesc = {
+  id: true,
+  title: true,
+  company: true,
+  location: true,
+  isRequest: true,
+  postedAt: true,
+  description: true,
+} as const;
+
+const richNoDesc = {
+  id: true,
+  title: true,
+  company: true,
+  location: true,
+  isRequest: true,
+  postedAt: true,
+} as const;
+
+async function tryUnique(d: Delegate, where: unknown): Promise<unknown | null> {
+  try {
+    return await d.findUnique({ where, select: richWithDesc });
+  } catch {}
+  try {
+    return await d.findUnique({ where, select: richNoDesc });
+  } catch {}
+  return null;
+}
+
+async function tryFirst(d: Delegate, where: unknown): Promise<unknown | null> {
+  try {
+    return await d.findFirst({ where, select: richWithDesc });
+  } catch {}
+  try {
+    return await d.findFirst({ where, select: richNoDesc });
+  } catch {}
+  return null;
 }
 
 export async function GET(_req: Request, context: unknown): Promise<Response> {
@@ -63,34 +104,16 @@ export async function GET(_req: Request, context: unknown): Promise<Response> {
     const d = delegate.d;
     let row: unknown | null = null;
 
-    try {
-      row = await d.findUnique({
-        where: { id: idParam },
-        select: { id: true, title: true, company: true, location: true, isRequest: true, postedAt: true },
-      });
-    } catch {}
-
+    row = await tryUnique(d, { id: idParam });
     if (!row) {
       const asNumber = Number(idParam);
       if (!Number.isNaN(asNumber)) {
-        try {
-          row = await d.findUnique({
-            where: { id: asNumber },
-            select: { id: true, title: true, company: true, location: true, isRequest: true, postedAt: true },
-          });
-        } catch {}
+        row = await tryUnique(d, { id: asNumber });
       }
     }
-
     if (!row) {
-      try {
-        row = await d.findFirst({
-          where: { id: idParam },
-          select: { id: true, title: true, company: true, location: true, isRequest: true, postedAt: true },
-        });
-      } catch {}
+      row = await tryFirst(d, { id: idParam });
     }
-
     if (!row) return safeEmpty;
 
     const item = normalizeOne(row, idParam);
