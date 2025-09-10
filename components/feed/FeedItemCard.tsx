@@ -2,7 +2,7 @@
 import React from "react";
 import Link from "next/link";
 
-type FeedItem = {
+type FeedJob = {
   id: string;
   type: "job";
   title: string | null;
@@ -10,6 +10,22 @@ type FeedItem = {
   isRequest: boolean | null;
   postedAt: string | null;
 };
+
+type FeedPerson = {
+  id: string;
+  type: "person";
+  name: string | null;
+  postedAt: string | null;
+};
+
+type FeedMentor = {
+  id: string;
+  type: "mentor";
+  name: string | null;
+  postedAt: string | null;
+};
+
+type FeedItem = FeedJob | FeedPerson | FeedMentor;
 
 function timeAgo(iso: string | null): string | null {
   if (!iso) return null;
@@ -28,13 +44,14 @@ function timeAgo(iso: string | null): string | null {
 
 export default function FeedItemCard({ item }: { item: FeedItem }) {
   const ago = timeAgo(item.postedAt);
+
   if (item.type === "job") {
     const isReq = item.isRequest === true;
     return (
       <Link href={`/jobs/${item.id}`} className="block rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
-            <div className="text-sm text-gray-500">Job</div>
+            <div className="text-xs font-medium text-gray-600">Job</div>
             <h3 className="text-lg font-semibold">{item.title ?? "Untitled"}</h3>
             <p className="text-sm text-gray-700">
               {isReq ? "Anonymous request" : item.company ?? "Unknown company"}
@@ -50,5 +67,26 @@ export default function FeedItemCard({ item }: { item: FeedItem }) {
       </Link>
     );
   }
-  return null;
+
+  if (item.type === "person") {
+    return (
+      <Link href={`/directory/${item.id}`} className="block rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition">
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-gray-600">Directory</div>
+          <h3 className="text-lg font-semibold">{item.name ?? "Unnamed person"}</h3>
+          {ago ? <p className="text-xs text-gray-400">Updated {ago}</p> : null}
+        </div>
+      </Link>
+    );
+  }
+
+  return (
+    <Link href={`/mentors/${item.id}`} className="block rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition">
+      <div className="space-y-1">
+        <div className="text-xs font-medium text-gray-600">Mentor</div>
+        <h3 className="text-lg font-semibold">{item.name ?? "Unnamed mentor"}</h3>
+        {ago ? <p className="text-xs text-gray-400">Updated {ago}</p> : null}
+      </div>
+    </Link>
+  );
 }

@@ -2,7 +2,7 @@
 import React from "react";
 import FeedItemCard from "./FeedItemCard";
 
-type FeedItem = {
+type FeedJob = {
   id: string;
   type: "job";
   title: string | null;
@@ -10,6 +10,22 @@ type FeedItem = {
   isRequest: boolean | null;
   postedAt: string | null;
 };
+
+type FeedPerson = {
+  id: string;
+  type: "person";
+  name: string | null;
+  postedAt: string | null;
+};
+
+type FeedMentor = {
+  id: string;
+  type: "mentor";
+  name: string | null;
+  postedAt: string | null;
+};
+
+type FeedItem = FeedJob | FeedPerson | FeedMentor;
 
 type FeedResponse = {
   items: FeedItem[];
