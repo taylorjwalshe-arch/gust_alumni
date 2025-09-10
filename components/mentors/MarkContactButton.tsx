@@ -26,12 +26,13 @@ export default function MarkContactButton({ mentorId }: { mentorId: string }) {
     }
   }
 
-  if (done) return <span className="text-green-600 text-sm">Logged</span>;
+  if (done) return <span className="text-green-600 text-sm" role="status">Logged</span>;
 
   return (
     <button
       onClick={mark}
       disabled={loading}
+      aria-label="Mark this mentor as contacted"
       className="rounded-lg bg-blue-600 text-white px-3 py-1 text-sm hover:bg-blue-700 disabled:opacity-50"
       type="button"
     >

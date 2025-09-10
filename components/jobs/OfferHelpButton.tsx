@@ -32,13 +32,14 @@ export default function OfferHelpButton({ jobId }: { jobId: string }) {
     }
   }
 
-  if (sent) return <p className="text-green-600">Thanks! The requester will be notified.</p>;
-  if (error) return <p className="text-red-600">Error: {error}</p>;
+  if (sent) return <p className="text-green-600" role="status">Thanks! The requester will be notified.</p>;
+  if (error) return <p className="text-red-600" role="alert">Error: {error}</p>;
 
   return (
     <button
       onClick={send}
       disabled={loading}
+      aria-label="Offer help to this job request"
       className="rounded-xl bg-blue-600 text-white px-4 py-2 hover:bg-blue-700 disabled:opacity-50"
     >
       {loading ? "Sending..." : "Offer help"}
