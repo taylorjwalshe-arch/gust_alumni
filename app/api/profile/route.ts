@@ -73,6 +73,12 @@ export async function POST(req: Request): Promise<Response> {
     );
     data["industries"] = arr;
   }
+  if (fields.has("teamSlug") && typeof (body as Record<string, unknown>).teamSlug === "string") {
+    data["teamSlug"] = (body as Record<string, unknown>).teamSlug;
+  }
+  if (fields.has("teamId") && (typeof (body as Record<string, unknown>).teamId === "string" || typeof (body as Record<string, unknown>).teamId === "number")) {
+    data["teamId"] = (body as Record<string, unknown>).teamId;
+  }
 
   try {
     if (id != null && has(d, "update")) {
@@ -81,7 +87,7 @@ export async function POST(req: Request): Promise<Response> {
           where: typeof id === "number" || typeof id === "string" ? { id } : { id: undefined },
           data,
           select: Object.fromEntries(
-            ["id", "firstName", "lastName", "email", "location", "industries"]
+            ["id", "firstName", "lastName", "email", "location", "industries", "teamSlug", "teamId"]
               .filter((k) => fields.has(k))
               .map((k) => [k, true] as const)
           ),
@@ -101,7 +107,7 @@ export async function POST(req: Request): Promise<Response> {
             where: existing,
             data,
             select: Object.fromEntries(
-              ["id", "firstName", "lastName", "email", "location", "industries"]
+              ["id", "firstName", "lastName", "email", "location", "industries", "teamSlug", "teamId"]
                 .filter((k) => fields.has(k))
                 .map((k) => [k, true] as const)
             ),
@@ -116,7 +122,7 @@ export async function POST(req: Request): Promise<Response> {
         const created = await (d.create as (a: unknown) => Promise<unknown>)({
           data,
           select: Object.fromEntries(
-            ["id", "firstName", "lastName", "email", "location", "industries"]
+            ["id", "firstName", "lastName", "email", "location", "industries", "teamSlug", "teamId"]
               .filter((k) => fields.has(k))
               .map((k) => [k, true] as const)
           ),

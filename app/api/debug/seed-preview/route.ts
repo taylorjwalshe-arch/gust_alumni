@@ -55,23 +55,25 @@ function pick(obj: Record<string, unknown>, fields: Set<string>) {
 }
 
 function samplePeople() {
+  const teamSlug = "georgetown-sailing";
   return [
-    { firstName: "Alex", lastName: "Rivera", email: "alex.rivera@example.com", location: "Washington, DC", industries: ["Tech"] },
-    { firstName: "Jordan", lastName: "Lee", email: "jordan.lee@example.com", location: "New York, NY", industries: ["Finance"] },
-    { firstName: "Casey", lastName: "Ng", email: "casey.ng@example.com", location: "Boston, MA", industries: ["Consulting"] },
-    { firstName: "Taylor", lastName: "Brooks", email: "taylor.brooks@example.com", location: "San Francisco, CA", industries: ["Product"] },
-    { firstName: "Riley", lastName: "Shah", email: "riley.shah@example.com", location: "Chicago, IL", industries: ["Sales"] },
+    { firstName: "Alex", lastName: "Rivera", email: "alex.rivera@example.com", location: "Washington, DC", industries: ["Tech"], teamSlug },
+    { firstName: "Jordan", lastName: "Lee", email: "jordan.lee@example.com", location: "New York, NY", industries: ["Finance"], teamSlug },
+    { firstName: "Casey", lastName: "Ng", email: "casey.ng@example.com", location: "Boston, MA", industries: ["Consulting"], teamSlug },
+    { firstName: "Taylor", lastName: "Brooks", email: "taylor.brooks@example.com", location: "San Francisco, CA", industries: ["Product"], teamSlug },
+    { firstName: "Riley", lastName: "Shah", email: "riley.shah@example.com", location: "Chicago, IL", industries: ["Sales"], teamSlug },
   ];
 }
 
 function sampleJobs() {
   const now = Date.now();
+  const teamSlug = "georgetown-sailing";
   return [
-    { title: "Software Engineer", company: "Acme", location: "NYC, NY", isRequest: false, postedAt: new Date(now - 1 * 864e5) },
-    { title: "Analyst", company: "Goliath Capital", location: "New York, NY", isRequest: false, postedAt: new Date(now - 2 * 864e5) },
-    { title: "PM", company: "Meta", location: "Seattle, WA", isRequest: false, postedAt: new Date(now - 3 * 864e5) },
-    { title: "Tech Sales (Request)", company: null, location: "Remote", isRequest: true, postedAt: new Date(now - 4 * 864e5) },
-    { title: "Design Intern", company: "Figma", location: "SF, CA", isRequest: false, postedAt: new Date(now - 5 * 864e5) },
+    { title: "Software Engineer", company: "Acme", location: "NYC, NY", isRequest: false, postedAt: new Date(now - 1 * 864e5), teamSlug },
+    { title: "Analyst", company: "Goliath Capital", location: "New York, NY", isRequest: false, postedAt: new Date(now - 2 * 864e5), teamSlug },
+    { title: "PM", company: "Meta", location: "Seattle, WA", isRequest: false, postedAt: new Date(now - 3 * 864e5), teamSlug },
+    { title: "Tech Sales (Request)", company: null, location: "Remote", isRequest: true, postedAt: new Date(now - 4 * 864e5), teamSlug },
+    { title: "Design Intern", company: "Figma", location: "SF, CA", isRequest: false, postedAt: new Date(now - 5 * 864e5), teamSlug },
   ];
 }
 
@@ -104,7 +106,6 @@ export async function POST(req: Request): Promise<Response> {
   let jobsCount = 0;
 
   try {
-    // Seed people
     if (peopleMeta) {
       const d = getDelegate(peopleMeta.modelName);
       if (hasWrite(d)) {
@@ -119,16 +120,13 @@ export async function POST(req: Request): Promise<Response> {
             try {
               await d.create({ data: r });
               c++;
-            } catch {
-              // ignore duplicates / missing requireds
-            }
+            } catch {}
           }
           peopleCount = Math.max(peopleCount, c);
         }
       }
     }
 
-    // Collect some person ids (if present) for posterId
     let personIds: string[] = [];
     if (peopleMeta) {
       const d = getDelegate(peopleMeta.modelName);
@@ -144,7 +142,6 @@ export async function POST(req: Request): Promise<Response> {
       }
     }
 
-    // Seed jobs
     if (jobsMeta) {
       const d = getDelegate(jobsMeta.modelName);
       if (hasWrite(d)) {
@@ -169,9 +166,7 @@ export async function POST(req: Request): Promise<Response> {
             try {
               await d.create({ data: r });
               c++;
-            } catch {
-              // ignore duplicates / missing requireds
-            }
+            } catch {}
           }
           jobsCount = Math.max(jobsCount, c);
         }
