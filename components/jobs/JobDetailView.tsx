@@ -16,8 +16,9 @@ type JobDetailResponse = {
 };
 
 export default function JobDetailView() {
-  const params = useParams();
-  const id = typeof params?.id === "string" ? params.id : Array.isArray((params as any)?.id) ? (params as any).id[0] : "";
+  const params = useParams() as Record<string, string | string[]>;
+  const raw = params?.id;
+  const id = typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : "";
   const [data, setData] = React.useState<JobDetailResponse>({ item: null });
   const [loading, setLoading] = React.useState(false);
 

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 type NormalizedJob = {
@@ -51,19 +51,21 @@ function normalizeOne(row: unknown, fallbackId: string): NormalizedJob {
   return { id, title, company, location, isRequest, postedAt };
 }
 
-export async function GET(req: NextRequest, ctx: { params?: { id?: string } }) {
-  const idParam = ctx?.params?.id ?? "";
+export async function GET(_req: Request, context: unknown): Promise<Response> {
+  const params = (context as { params?: { id?: string } } | undefined)?.params;
+  const idParam = params?.id ?? "";
   const safeEmpty = NextResponse.json({ item: null }, { status: 200 });
 
   try {
     const delegate = getDelegate();
     if (!delegate || !idParam) return safeEmpty;
 
+    const d = delegate.d;
     let row: unknown | null = null;
 
     try {
-      row = await delegate.d.findUnique({
-        where: { id: idParam as unknown as never },
+      row = await d.findUnique({
+        where: { id: idParam },
         select: { id: true, title: true, company: true, location: true, isRequest: true, postedAt: true },
       });
     } catch {}
@@ -72,8 +74,8 @@ export async function GET(req: NextRequest, ctx: { params?: { id?: string } }) {
       const asNumber = Number(idParam);
       if (!Number.isNaN(asNumber)) {
         try {
-          row = await delegate.d.findUnique({
-            where: { id: asNumber as unknown as never },
+          row = await d.findUnique({
+            where: { id: asNumber },
             select: { id: true, title: true, company: true, location: true, isRequest: true, postedAt: true },
           });
         } catch {}
@@ -82,8 +84,8 @@ export async function GET(req: NextRequest, ctx: { params?: { id?: string } }) {
 
     if (!row) {
       try {
-        row = await delegate.d.findFirst({
-          where: { id: idParam as unknown as never },
+        row = await d.findFirst({
+          where: { id: idParam },
           select: { id: true, title: true, company: true, location: true, isRequest: true, postedAt: true },
         });
       } catch {}
