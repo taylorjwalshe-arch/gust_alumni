@@ -3,36 +3,40 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import fs from "fs";
 import path from "path";
+import { getSessionLoose } from "@/lib/authLoose";
+import { readRole } from "@/lib/session";
 
-type SocialItem = {
+type Item = {
   id: string;
   type: string;
-  title: string | null;
-  body?: string | null;
+  title: string;
+  body: string | null;
   postedAt: string;
+  teamSlug?: string | null;
 };
-type ListOut = { items: SocialItem[]; total: number; page: number; pageSize: number };
+type ListOut = { items: Item[]; total: number; page: number; pageSize: number };
+type CreateOut = { ok: boolean; item?: Item; reason?: string | null };
 
-const SOCIAL_CANDIDATES = ["social", "news", "updates", "post"] as const;
+const CANDIDATES = ["news", "updates", "post", "social"] as const;
 
-function camelize(name: string): string {
+function camel(name: string): string {
   return name.charAt(0).toLowerCase() + name.slice(1);
 }
 function getModel() {
   const models = Prisma.dmmf.datamodel.models;
   const map = new Map(models.map((m) => [m.name.toLowerCase(), m]));
-  for (const k of SOCIAL_CANDIDATES) {
-    const m = map.get(k);
+  for (const key of CANDIDATES) {
+    const m = map.get(key);
     if (m) return m;
   }
   return null;
 }
 function getDelegate(modelName: string) {
-  const key = camelize(modelName);
+  const key = camel(modelName);
   return (prisma as unknown as Record<string, unknown>)[key] as unknown;
 }
-function has(d: unknown, k: string): boolean {
-  return !!(d && typeof d === "object" && k in (d as object));
+function has(o: unknown, k: string): boolean {
+  return !!(o && typeof o === "object" && k in (o as object));
 }
 function normId(v: unknown): string {
   if (typeof v === "string") return v;
@@ -48,49 +52,61 @@ function iso(v: unknown): string {
   }
   return new Date().toISOString();
 }
+function logPath(): string {
+  const dir = "/tmp";
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, "social.log.jsonl");
+}
 
-export async function GET(req: Request): Promise<Response> {
+export async function GET(req: Request, _ctx: unknown): Promise<Response> {
   const url = new URL(req.url);
-  const q = url.searchParams.get("q") || "";
-  const team = url.searchParams.get("team") || "";
   const page = Math.max(1, Number(url.searchParams.get("page") || "1"));
   const pageSize = Math.max(1, Math.min(50, Number(url.searchParams.get("pageSize") || "20")));
+  const team = url.searchParams.get("team") || "";
 
   const meta = getModel();
-  if (!meta) return NextResponse.json({ items: [], total: 0, page, pageSize } as ListOut, { status: 200 });
-
-  const d = getDelegate(meta.name) as {
-    findMany?: (args: unknown) => Promise<unknown[]>;
-    count?: (args: unknown) => Promise<number>;
-  };
+  if (!meta) {
+    const file = logPath();
+    if (!fs.existsSync(file)) return NextResponse.json({ items: [], total: 0, page, pageSize } as ListOut, { status: 200 });
+    const lines = fs.readFileSync(file, "utf8").split("\n").filter((l) => l.trim().length > 0);
+    const all = lines.map((l) => {
+      try {
+        const o = JSON.parse(l) as Record<string, unknown>;
+        return {
+          id: normId(o.id ?? o._id ?? ""),
+          type: typeof o.type === "string" ? o.type : "Social",
+          title: typeof o.title === "string" ? o.title : "",
+          body: typeof o.body === "string" ? o.body : null,
+          postedAt: iso(o.postedAt ?? o.ts ?? new Date().toISOString()),
+          teamSlug: typeof o.teamSlug === "string" ? o.teamSlug : null,
+        } as Item;
+      } catch {
+        return null;
+      }
+    }).filter((x): x is Item => !!x);
+    const filtered = team ? all.filter((x) => (x.teamSlug || "") === team) : all;
+    filtered.sort((a, b) => (a.postedAt < b.postedAt ? 1 : a.postedAt > b.postedAt ? -1 : 0));
+    return NextResponse.json({ items: filtered.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize), total: filtered.length, page, pageSize } as ListOut, { status: 200 });
+  }
 
   const fields = new Set(meta.fields.map((f) => f.name));
+  const d = getDelegate(meta.name) as { findMany?: (a: unknown) => Promise<unknown[]>; count?: (a: unknown) => Promise<number> };
+
   const where: Record<string, unknown> = {};
-  const titleFields = ["title", "headline", "text"].filter((k) => fields.has(k));
-  const bodyFields = ["body", "content", "text"].filter((k) => fields.has(k));
-  if (q) {
-    const ors: Record<string, unknown>[] = [];
-    for (const f of titleFields) ors.push({ [f]: { contains: q, mode: "insensitive" } });
-    for (const f of bodyFields) ors.push({ [f]: { contains: q, mode: "insensitive" } });
-    if (ors.length) where["OR"] = ors;
-  }
   if (team) {
     if (fields.has("teamSlug")) where["teamSlug"] = team;
     else if (fields.has("teamId")) where["teamId"] = team;
   }
 
-  const RICH: Record<string, true> = {};
-  ["id", "type", "title", "headline", "body", "content", "text", "postedAt", "createdAt", "category", "teamSlug", "teamId"].forEach(
-    (k) => {
-      if (fields.has(k)) (RICH as Record<string, true>)[k] = true;
-    }
-  );
-  const MIN: Record<string, true> = {};
-  if (fields.has("id")) (MIN as Record<string, true>)["id"] = true;
+  const select: Record<string, true> = {};
+  ["id", "type", "title", "body", "postedAt", "teamSlug"].forEach((k) => {
+    if (fields.has(k)) (select as Record<string, true>)[k] = true;
+  });
+  const minimal: Record<string, true> = {};
+  if (fields.has("id")) (minimal as Record<string, true>)["id"] = true;
 
   let rows: unknown[] = [];
   let total = 0;
-
   try {
     if (has(d, "findMany")) {
       try {
@@ -98,25 +114,19 @@ export async function GET(req: Request): Promise<Response> {
           where,
           take: pageSize,
           skip: (page - 1) * pageSize,
-          orderBy: fields.has("postedAt")
-            ? { postedAt: "desc" }
-            : fields.has("createdAt")
-            ? { createdAt: "desc" }
-            : undefined,
-          select: RICH,
+          orderBy: fields.has("postedAt") ? { postedAt: "desc" } : undefined,
+          select: Object.keys(select).length ? select : minimal,
         });
       } catch {
         rows = await (d.findMany as (a: unknown) => Promise<unknown[]>)({
           where,
           take: pageSize,
           skip: (page - 1) * pageSize,
-          select: RICH,
+          select: Object.keys(select).length ? select : minimal,
         });
       }
       try {
-        total = has(d, "count")
-          ? await (d.count as (a: unknown) => Promise<number>)({ where })
-          : rows.length;
+        total = has(d, "count") ? await (d.count as (a: unknown) => Promise<number>)({ where }) : rows.length;
       } catch {
         total = rows.length;
       }
@@ -126,142 +136,156 @@ export async function GET(req: Request): Promise<Response> {
     total = 0;
   }
 
-  const items: SocialItem[] = (rows as Record<string, unknown>[]).map((r) => {
-    const title =
-      (typeof r.title === "string" ? r.title : null) ??
-      (typeof r.headline === "string" ? r.headline : null) ??
-      (typeof r.text === "string" ? r.text : null);
-    const body =
-      (typeof r.body === "string" ? r.body : null) ??
-      (typeof r.content === "string" ? r.content : null) ??
-      (typeof r.text === "string" ? r.text : null);
-    const type =
-      (typeof r.type === "string" ? r.type : null) ??
-      (typeof r.category === "string" ? r.category : null) ??
-      "Social";
-    const postedAt = r.postedAt ?? r.createdAt ?? new Date().toISOString();
-    return {
-      id: normId(r.id),
-      type: typeof type === "string" ? type : "Social",
-      title,
-      ...(body !== null ? { body } : {}),
-      postedAt: iso(postedAt),
-    };
-  });
+  const items: Item[] = (rows as Record<string, unknown>[]).map((r) => ({
+    id: normId(r.id),
+    type: typeof r.type === "string" ? r.type : "Social",
+    title: typeof r.title === "string" ? r.title : "",
+    body: typeof r.body === "string" ? r.body : null,
+    postedAt: iso(r.postedAt ?? r.createdAt ?? new Date().toISOString()),
+    ...(fields.has("teamSlug") ? { teamSlug: typeof r.teamSlug === "string" ? r.teamSlug : null } : {}),
+  }));
 
   return NextResponse.json({ items, total, page, pageSize } as ListOut, { status: 200 });
 }
 
-export async function POST(req: Request): Promise<Response> {
-  let bodyIn: Record<string, unknown> = {};
+export async function POST(req: Request, _ctx: unknown): Promise<Response> {
+  const isPreview = process.env.VERCEL === "1" && process.env.VERCEL_ENV === "preview";
+  const allowLocal = process.env.NODE_ENV !== "production" && process.env.ALLOW_LOCAL_PREVIEW_SEED === "true";
+
   try {
-    const json = await req.json();
-    bodyIn = (json && typeof json === "object" ? (json as Record<string, unknown>) : {}) || {};
+    const s = await getSessionLoose();
+    const role = readRole(s);
+    if (!s || !s.user || role !== "admin") {
+      return NextResponse.json({ ok: false, reason: "unauthorized" } as CreateOut, { status: 200 });
+    }
   } catch {
-    bodyIn = {};
+    return NextResponse.json({ ok: false, reason: "unauthorized" } as CreateOut, { status: 200 });
   }
 
-  const titleIn = typeof bodyIn.title === "string" ? bodyIn.title : null;
-  const bodyTextIn = typeof bodyIn.body === "string" ? bodyIn.body : null;
-  const typeIn = typeof bodyIn.type === "string" ? bodyIn.type : "Social";
-  const postedAtIn = bodyIn.postedAt ?? new Date().toISOString();
-  const teamSlugIn = typeof bodyIn.teamSlug === "string" ? bodyIn.teamSlug : undefined;
-  const teamIdIn = typeof bodyIn.teamId === "string" || typeof bodyIn.teamId === "number" ? bodyIn.teamId : undefined;
+  if (!isPreview && !allowLocal) {
+    return NextResponse.json({ ok: false, reason: "not-allowed" } as CreateOut, { status: 200 });
+  }
+
+  let body: Record<string, unknown> = {};
+  try {
+    const json = await req.json();
+    body = (json && typeof json === "object" ? (json as Record<string, unknown>) : {}) || {};
+  } catch {
+    body = {};
+  }
+
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  const text = typeof body.body === "string" ? body.body.trim() : "";
+  const type = typeof body.type === "string" ? body.type.trim() : "Social";
+  const teamSlug = typeof body.teamSlug === "string" ? body.teamSlug.trim() : null;
+
+  if (!title) return NextResponse.json({ ok: false, reason: "missing-title" } as CreateOut, { status: 200 });
 
   const meta = getModel();
-
-  if (meta) {
-    const d = getDelegate(meta.name) as { create?: (args: unknown) => Promise<unknown> };
-    const fields = new Set(meta.fields.map((f) => f.name));
-
-    const titleKey = fields.has("title") ? "title" : fields.has("headline") ? "headline" : fields.has("text") ? "text" : null;
-    const bodyKey = fields.has("body") ? "body" : fields.has("content") ? "content" : fields.has("text") ? "text" : null;
-    const typeKey = fields.has("type") ? "type" : fields.has("category") ? "category" : null;
-    const postedKey = fields.has("postedAt") ? "postedAt" : fields.has("createdAt") ? "createdAt" : null;
-
-    const data: Record<string, unknown> = {};
-    if (titleKey && titleIn !== null) data[titleKey] = titleIn;
-    if (bodyKey && bodyTextIn !== null) data[bodyKey] = bodyTextIn;
-    if (typeKey) data[typeKey] = typeIn;
-    if (postedKey) data[postedKey] = new Date(iso(postedAtIn));
-    if (teamSlugIn && fields.has("teamSlug")) data["teamSlug"] = teamSlugIn;
-    if (typeof teamIdIn !== "undefined" && fields.has("teamId")) data["teamId"] = teamIdIn;
-
-    const select: Record<string, true> = {};
-    ["id", "title", "headline", "body", "content", "text", "type", "category", "postedAt", "createdAt"].forEach((k) => {
-      if (fields.has(k)) (select as Record<string, true>)[k] = true;
-    });
-    const minimal: Record<string, true> = {};
-    if (fields.has("id")) (minimal as Record<string, true>)["id"] = true;
-
+  if (!meta) {
+    const file = logPath();
+    const entry = {
+      id: `${Date.now()}`,
+      type,
+      title,
+      body: text || null,
+      postedAt: new Date().toISOString(),
+      teamSlug,
+    };
     try {
-      if (has(d, "create")) {
-        try {
-          const created = await (d.create as (a: unknown) => Promise<unknown>)({
-            data,
-            select: Object.keys(select).length ? select : minimal,
-          });
-          const r = created as Record<string, unknown>;
-          const title =
-            (typeof r.title === "string" ? r.title : null) ??
-            (typeof r.headline === "string" ? r.headline : null) ??
-            (typeof r.text === "string" ? r.text : null);
-          const bodyText =
-            (typeof r.body === "string" ? r.body : null) ??
-            (typeof r.content === "string" ? r.content : null) ??
-            (typeof r.text === "string" ? r.text : null);
-          const type =
-            (typeof r.type === "string" ? r.type : null) ??
-            (typeof r.category === "string" ? r.category : null) ??
-            "Social";
-          const postedAt = r.postedAt ?? r.createdAt ?? new Date().toISOString();
-          const item: SocialItem = {
-            id: normId(r.id),
-            type: typeof type === "string" ? type : "Social",
-            title,
-            ...(bodyText !== null ? { body: bodyText } : {}),
-            postedAt: iso(postedAt),
-          };
-          return NextResponse.json({ ok: true, item }, { status: 200 });
-        } catch {
-          try {
-            const created = await (d.create as (a: unknown) => Promise<unknown>)({
-              data: {},
-              select: minimal,
-            });
-            const r = created as Record<string, unknown>;
-            const item: SocialItem = {
-              id: normId(r.id),
-              type: typeIn,
-              title: titleIn,
-              ...(bodyTextIn !== null ? { body: bodyTextIn } : {}),
-              postedAt: iso(postedAtIn),
-            };
-            return NextResponse.json({ ok: true, item }, { status: 200 });
-          } catch {
-            // fall through to file log
-          }
-        }
-      }
+      fs.appendFileSync(file, JSON.stringify(entry) + "\n");
+      return NextResponse.json({ ok: true, item: entry as Item } as CreateOut, { status: 200 });
     } catch {
-      // fall through to file log
+      return NextResponse.json({ ok: false, reason: "log-failed" } as CreateOut, { status: 200 });
     }
   }
 
+  const fields = new Set(meta.fields.map((f) => f.name));
+  const d = getDelegate(meta.name) as { create?: (a: unknown) => Promise<unknown> };
+
+  const data: Record<string, unknown> = {};
+  if (fields.has("title")) data.title = title;
+  if (fields.has("body")) data.body = text || null;
+  if (fields.has("type")) data.type = type;
+  if (fields.has("postedAt")) data.postedAt = new Date();
+  if (fields.has("teamSlug") && teamSlug) data.teamSlug = teamSlug;
+
+  const select: Record<string, true> = {};
+  ["id", "title", "body", "type", "postedAt", "teamSlug"].forEach((k) => {
+    if (fields.has(k)) (select as Record<string, true>)[k] = true;
+  });
+  const minimal: Record<string, true> = {};
+  if (fields.has("id")) (minimal as Record<string, true>)["id"] = true;
+
   try {
-    const dir = "/tmp";
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const file = path.join(dir, "social.log");
-    const entry: SocialItem = {
-      id: `file-${Date.now()}`,
-      type: typeIn,
-      title: titleIn,
-      ...(bodyTextIn !== null ? { body: bodyTextIn } : {}),
-      postedAt: iso(postedAtIn),
-    };
-    fs.appendFileSync(file, JSON.stringify(entry) + "\n");
-    return NextResponse.json({ ok: true, item: entry }, { status: 200 });
+    if (has(d, "create")) {
+      try {
+        const created = await (d.create as (a: unknown) => Promise<unknown>)({
+          data,
+          select: Object.keys(select).length ? select : minimal,
+        });
+        const r = created as Record<string, unknown>;
+        const item: Item = {
+          id: normId(r.id),
+          title: typeof r.title === "string" ? r.title : title,
+          body: typeof r.body === "string" ? r.body : (text || null),
+          type: typeof r.type === "string" ? r.type : type,
+          postedAt: iso(r.postedAt ?? r.createdAt ?? new Date().toISOString()),
+          ...(fields.has("teamSlug") ? { teamSlug: typeof r.teamSlug === "string" ? r.teamSlug : (teamSlug ?? null) } : {}),
+        };
+        return NextResponse.json({ ok: true, item } as CreateOut, { status: 200 });
+      } catch {
+        try {
+          const created = await (d.create as (a: unknown) => Promise<unknown>)({
+            data: {},
+            select: minimal,
+          });
+          const r = created as Record<string, unknown>;
+          const item: Item = {
+            id: normId(r.id),
+            title,
+            body: text || null,
+            type,
+            postedAt: new Date().toISOString(),
+            ...(teamSlug ? { teamSlug } : {}),
+          };
+          return NextResponse.json({ ok: true, item } as CreateOut, { status: 200 });
+        } catch {
+          const file = logPath();
+          const entry = {
+            id: `${Date.now()}`,
+            type,
+            title,
+            body: text || null,
+            postedAt: new Date().toISOString(),
+            teamSlug,
+          };
+          try {
+            fs.appendFileSync(file, JSON.stringify(entry) + "\n");
+            return NextResponse.json({ ok: true, item: entry as Item } as CreateOut, { status: 200 });
+          } catch {
+            return NextResponse.json({ ok: false, reason: "create-failed" } as CreateOut, { status: 200 });
+          }
+        }
+      }
+    }
   } catch {
-    return NextResponse.json({ ok: false, reason: "log-failed" }, { status: 200 });
+    const file = logPath();
+    const entry = {
+      id: `${Date.now()}`,
+      type,
+      title,
+      body: text || null,
+      postedAt: new Date().toISOString(),
+      teamSlug,
+    };
+    try {
+      fs.appendFileSync(file, JSON.stringify(entry) + "\n");
+      return NextResponse.json({ ok: true, item: entry as Item } as CreateOut, { status: 200 });
+    } catch {
+      return NextResponse.json({ ok: false, reason: "no-delegate" } as CreateOut, { status: 200 });
+    }
   }
+
+  return NextResponse.json({ ok: false, reason: "no-delegate" } as CreateOut, { status: 200 });
 }
