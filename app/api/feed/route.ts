@@ -1,227 +1,144 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
-type FeedJob = {
+type FeedItem = {
+  type: "Job" | "Directory" | "Mentor";
   id: string;
-  type: "job";
   title: string | null;
-  company: string | null;
-  isRequest: boolean | null;
-  postedAt: string | null;
+  body?: string | null;
+  postedAt: string;
 };
 
-type FeedPerson = {
-  id: string;
-  type: "person";
-  name: string | null;
-  postedAt: string | null;
-};
-
-type FeedMentor = {
-  id: string;
-  type: "mentor";
-  name: string | null;
-  postedAt: string | null;
-};
-
-type FeedItem = FeedJob | FeedPerson | FeedMentor;
-
-type FeedResponse = {
-  items: FeedItem[];
-  total: number;
-  page: number;
-  pageSize: number;
-};
-
-const JOB_CANDIDATES = ["job", "jobs", "posting", "post", "opportunity"] as const;
-const PERSON_CANDIDATES = ["person", "people", "alumni", "user", "member"] as const;
-const MENTOR_CANDIDATES = ["mentor", "mentors", "candidate", "candidates"] as const;
-
-type ReadDelegate = {
-  findMany: (args?: unknown) => Promise<unknown[]>;
-  count: (args?: unknown) => Promise<number>;
-};
-
-function hasReadDelegate(obj: unknown): obj is ReadDelegate {
-  if (!obj || typeof obj !== "object") return false;
-  const o = obj as { findMany?: unknown; count?: unknown };
-  return typeof o.findMany === "function" && typeof o.count === "function";
+function camelize(name: string): string {
+  return name.charAt(0).toLowerCase() + name.slice(1);
 }
-
-function getFirstDelegate(names: readonly string[]) {
-  const bag = prisma as unknown as Record<string, unknown>;
-  for (const name of names) {
-    const cand = bag[name];
-    if (hasReadDelegate(cand)) return cand as ReadDelegate;
+function getModel(names: readonly string[]) {
+  const models = Prisma.dmmf.datamodel.models;
+  const map = new Map(models.map((m) => [m.name.toLowerCase(), m]));
+  for (const k of names) {
+    const m = map.get(k);
+    if (m) return m;
   }
   return null;
 }
-
-function isoFromDateish(v: unknown): string | null {
+function getDelegate(modelName: string) {
+  const key = camelize(modelName);
+  return (prisma as unknown as Record<string, unknown>)[key] as unknown;
+}
+function has(d: unknown, k: string): boolean {
+  return !!(d && typeof d === "object" && k in (d as object));
+}
+function normId(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (typeof v === "number") return String(v);
+  if (typeof v === "bigint") return String(v);
+  return "";
+}
+function iso(v: unknown): string {
   if (v instanceof Date) return v.toISOString();
   if (typeof v === "string") {
     const d = new Date(v);
-    return isNaN(d.getTime()) ? null : d.toISOString();
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
   }
-  return null;
-}
-
-function normalizeJobs(rows: unknown[]): FeedJob[] {
-  const arr = Array.isArray(rows) ? rows : [];
-  return arr.map((raw) => {
-    const r = (raw ?? {}) as Record<string, unknown>;
-    const id = r.id != null ? String(r.id) : crypto.randomUUID();
-    const title = typeof r.title === "string" ? r.title : null;
-    const company = typeof r.company === "string" ? r.company : null;
-    const isRequest = typeof r.isRequest === "boolean" ? r.isRequest : null;
-    const postedAt = isoFromDateish(r.postedAt);
-    return { id, type: "job", title, company, isRequest, postedAt };
-  });
-}
-
-function normalizePeople(rows: unknown[]): FeedPerson[] {
-  const arr = Array.isArray(rows) ? rows : [];
-  return arr.map((raw) => {
-    const r = (raw ?? {}) as Record<string, unknown>;
-    const id = r.id != null ? String(r.id) : crypto.randomUUID();
-    const first = typeof r.firstName === "string" ? r.firstName : null;
-    const last = typeof r.lastName === "string" ? r.lastName : null;
-    const name =
-      first || last ? `${(first ?? "").trim()} ${(last ?? "").trim()}`.trim() : null;
-    const postedAt =
-      isoFromDateish(r.updatedAt) ?? isoFromDateish(r.createdAt);
-    return { id, type: "person", name, postedAt };
-  });
-}
-
-function normalizeMentors(rows: unknown[]): FeedMentor[] {
-  const arr = Array.isArray(rows) ? rows : [];
-  return arr.map((raw) => {
-    const r = (raw ?? {}) as Record<string, unknown>;
-    const id = r.id != null ? String(r.id) : crypto.randomUUID();
-    const first = typeof r.firstName === "string" ? r.firstName : null;
-    const last = typeof r.lastName === "string" ? r.lastName : null;
-    const name =
-      first || last ? `${(first ?? "").trim()} ${(last ?? "").trim()}`.trim() : null;
-    const postedAt =
-      isoFromDateish(r.updatedAt) ?? isoFromDateish(r.createdAt);
-    return { id, type: "mentor", name, postedAt };
-  });
-}
-
-function capPageSize(raw: string | null): number {
-  const n = raw ? parseInt(raw, 10) : 20;
-  if (Number.isNaN(n) || n <= 0) return 20;
-  return Math.min(n, 100);
+  return new Date().toISOString();
 }
 
 export async function GET(req: Request): Promise<Response> {
-  try {
-    const { searchParams } = new URL(req.url);
-    const pageSize = capPageSize(searchParams.get("pageSize"));
-    const page = 1;
+  const url = new URL(req.url);
+  const page = Math.max(1, Number(url.searchParams.get("page") || "1"));
+  const pageSize = Math.max(1, Math.min(50, Number(url.searchParams.get("pageSize") || "20")));
+  const team = url.searchParams.get("team") || "";
 
-    const job = getFirstDelegate(JOB_CANDIDATES);
-    const person = getFirstDelegate(PERSON_CANDIDATES);
-    const mentor = getFirstDelegate(MENTOR_CANDIDATES);
+  const items: FeedItem[] = [];
 
-    const items: FeedItem[] = [];
-    let total = 0;
-
-    if (job) {
-      try {
-        const rows = await job.findMany({
-          take: pageSize,
-          orderBy: { postedAt: "desc" },
-          select: { id: true, title: true, company: true, isRequest: true, postedAt: true },
-        });
-        const n = normalizeJobs(rows);
-        items.push(...n);
-        total += n.length;
-      } catch {
-        try {
-          const rows = await job.findMany({
-            take: pageSize,
-            select: { id: true, title: true, company: true, isRequest: true, postedAt: true },
-          });
-          const n = normalizeJobs(rows);
-          items.push(...n);
-          total += n.length;
-        } catch {}
-      }
+  const jobMeta = getModel(["job", "jobs", "posting", "post", "opportunity"]);
+  if (jobMeta) {
+    const d = getDelegate(jobMeta.name) as {
+      findMany?: (args: unknown) => Promise<unknown[]>;
+    };
+    const fields = new Set(jobMeta.fields.map((f) => f.name));
+    const where: Record<string, unknown> = {};
+    if (team) {
+      if (fields.has("teamSlug")) where["teamSlug"] = team;
+      else if (fields.has("teamId")) where["teamId"] = team;
     }
-
-    if (person) {
-      try {
-        const rows = await person.findMany({
-          take: pageSize,
-          orderBy: { updatedAt: "desc" } as unknown,
-          select: { id: true, firstName: true, lastName: true, updatedAt: true, createdAt: true },
-        });
-        const n = normalizePeople(rows);
-        items.push(...n);
-        total += n.length;
-      } catch {
+    try {
+      if (has(d, "findMany")) {
+        let rows: unknown[] = [];
         try {
-          const rows = await person.findMany({
+          rows = await (d.findMany as (a: unknown) => Promise<unknown[]>)({
+            where,
             take: pageSize,
-            select: { id: true, firstName: true, lastName: true, updatedAt: true, createdAt: true },
+            orderBy: fields.has("postedAt") ? { postedAt: "desc" } : undefined,
+            select: Object.fromEntries(
+              ["id", "title", "postedAt"].filter((k) => fields.has(k)).map((k) => [k, true] as const)
+            ),
           });
-          const n = normalizePeople(rows);
-          items.push(...n);
-          total += n.length;
         } catch {
-          try {
-            const rows = await person.findMany({ take: pageSize, select: { id: true } });
-            const n = normalizePeople(rows);
-            items.push(...n);
-            total += n.length;
-          } catch {}
+          rows = await (d.findMany as (a: unknown) => Promise<unknown[]>)({
+            where,
+            take: pageSize,
+            select: Object.fromEntries(["id"].filter((k) => fields.has(k)).map((k) => [k, true] as const)),
+          });
+        }
+        for (const r of rows as Record<string, unknown>[]) {
+          items.push({
+            type: "Job",
+            id: normId(r.id),
+            title: typeof r.title === "string" ? r.title : null,
+            postedAt: iso(r.postedAt),
+          });
         }
       }
-    }
-
-    if (mentor) {
-      try {
-        const rows = await mentor.findMany({
-          take: pageSize,
-          orderBy: { updatedAt: "desc" } as unknown,
-          select: { id: true, firstName: true, lastName: true, updatedAt: true, createdAt: true },
-        });
-        const n = normalizeMentors(rows);
-        items.push(...n);
-        total += n.length;
-      } catch {
-        try {
-          const rows = await mentor.findMany({
-            take: pageSize,
-            select: { id: true, firstName: true, lastName: true, updatedAt: true, createdAt: true },
-          });
-          const n = normalizeMentors(rows);
-          items.push(...n);
-          total += n.length;
-        } catch {
-          try {
-            const rows = await mentor.findMany({ take: pageSize, select: { id: true } });
-            const n = normalizeMentors(rows);
-            items.push(...n);
-            total += n.length;
-          } catch {}
-        }
-      }
-    }
-
-    items.sort((a, b) => {
-      const ad = a.postedAt ? new Date(a.postedAt).getTime() : 0;
-      const bd = b.postedAt ? new Date(b.postedAt).getTime() : 0;
-      return bd - ad;
-    });
-
-    const sliced = items.slice(0, pageSize);
-    const body: FeedResponse = { items: sliced, total, page, pageSize };
-    return NextResponse.json(body, { status: 200 });
-  } catch {
-    const body: FeedResponse = { items: [], total: 0, page: 1, pageSize: 20 };
-    return NextResponse.json(body, { status: 200 });
+    } catch {}
   }
+
+  const personMeta = getModel(["person", "people", "alumni", "user", "member"]);
+  if (personMeta) {
+    const d = getDelegate(personMeta.name) as {
+      findMany?: (args: unknown) => Promise<unknown[]>;
+    };
+    const fields = new Set(personMeta.fields.map((f) => f.name));
+    const where: Record<string, unknown> = {};
+    if (team) {
+      if (fields.has("teamSlug")) where["teamSlug"] = team;
+      else if (fields.has("teamId")) where["teamId"] = team;
+    }
+    try {
+      if (has(d, "findMany")) {
+        let rows: unknown[] = [];
+        try {
+          rows = await (d.findMany as (a: unknown) => Promise<unknown[]>)({
+            where,
+            take: pageSize,
+            select: Object.fromEntries(
+              ["id", "firstName"].filter((k) => fields.has(k)).map((k) => [k, true] as const)
+            ),
+          });
+        } catch {
+          rows = await (d.findMany as (a: unknown) => Promise<unknown[]>)({
+            where,
+            take: pageSize,
+            select: Object.fromEntries(["id"].filter((k) => fields.has(k)).map((k) => [k, true] as const)),
+          });
+        }
+        for (const r of rows as Record<string, unknown>[]) {
+          items.push({
+            type: "Directory",
+            id: normId(r.id),
+            title: typeof r.firstName === "string" ? r.firstName : null,
+            postedAt: new Date().toISOString(),
+          });
+        }
+      }
+    } catch {}
+  }
+
+  items.sort((a, b) => (a.postedAt < b.postedAt ? 1 : a.postedAt > b.postedAt ? -1 : 0));
+
+  return NextResponse.json(
+    { items, total: items.length, page, pageSize },
+    { status: 200 }
+  );
 }

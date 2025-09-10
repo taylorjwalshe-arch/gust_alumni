@@ -59,9 +59,9 @@ function iso(v: unknown): string {
 function normalizeJob(row: Record<string, unknown>, hasDescription: boolean): JobOut {
   return {
     id: normId(row.id),
-    title: (typeof row.title === "string" ? row.title : null),
-    company: (typeof row.company === "string" ? row.company : null),
-    location: (typeof row.location === "string" ? row.location : null),
+    title: typeof row.title === "string" ? row.title : null,
+    company: typeof row.company === "string" ? row.company : null,
+    location: typeof row.location === "string" ? row.location : null,
     isRequest: !!(row.isRequest as boolean),
     postedAt: iso(row.postedAt),
     posterId: row.posterId != null ? normId(row.posterId) : null,
@@ -75,6 +75,7 @@ export async function GET(req: Request): Promise<Response> {
   const type = url.searchParams.get("type");
   const location = url.searchParams.get("location") || "";
   const sort = url.searchParams.get("sort") || "newest";
+  const team = url.searchParams.get("team") || "";
   const page = Math.max(1, Number(url.searchParams.get("page") || "1"));
   const pageSize = Math.max(1, Math.min(50, Number(url.searchParams.get("pageSize") || "10")));
 
@@ -95,6 +96,10 @@ export async function GET(req: Request): Promise<Response> {
   if (q && fields.has("title")) where["title"] = { contains: q, mode: "insensitive" };
   if (location && fields.has("location")) where["location"] = { contains: location, mode: "insensitive" };
   if (type && fields.has("isRequest")) where["isRequest"] = type === "requests";
+  if (team) {
+    if (fields.has("teamSlug")) where["teamSlug"] = team;
+    else if (fields.has("teamId")) where["teamId"] = team;
+  }
 
   const RICH: Record<string, true> = {};
   ["id", "title", "company", "location", "isRequest", "postedAt", "posterId"].forEach((k) => {
@@ -182,6 +187,8 @@ export async function POST(req: Request): Promise<Response> {
   if (fields.has("postedAt")) richData.postedAt = body.postedAt ? new Date(String(body.postedAt)) : new Date();
   if (fields.has("posterId") && (typeof body.posterId === "string" || typeof body.posterId === "number")) richData.posterId = body.posterId;
   if (fields.has("description") && (typeof body.description === "string" || body.description === null)) richData.description = body.description ?? null;
+  if (fields.has("teamSlug") && typeof body.teamSlug === "string") richData.teamSlug = body.teamSlug;
+  if (fields.has("teamId") && (typeof body.teamId === "string" || typeof body.teamId === "number")) richData.teamId = body.teamId;
 
   const MIN: Record<string, true> = {};
   if (fields.has("id")) (MIN as Record<string, true>)["id"] = true;
