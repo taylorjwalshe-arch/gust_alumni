@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useNotify } from "@/components/notify/NotificationsProvider";
 
 export default function OfferHelpButton({ jobId }: { jobId: string }) {
+  const { notify } = useNotify();
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +21,7 @@ export default function OfferHelpButton({ jobId }: { jobId: string }) {
       const json = await res.json();
       if (json.ok) {
         setSent(true);
+        notify("Thanks for offering help — the requester will be notified.");
       } else {
         setError(json.reason || "Failed to send");
       }

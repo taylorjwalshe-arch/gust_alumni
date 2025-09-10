@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useNotify } from "@/components/notify/NotificationsProvider";
 
 type Session =
   | {
@@ -11,6 +12,7 @@ type Session =
   | null;
 
 export default function NewSocialForm() {
+  const { notify } = useNotify();
   const [role, setRole] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
   const [title, setTitle] = useState("");
@@ -59,6 +61,7 @@ export default function NewSocialForm() {
       const json = await res.json();
       if (json && json.ok) {
         setOk(true);
+        notify("Social post published");
         setTitle("");
         setBody("");
         setType("Social");
