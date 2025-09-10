@@ -81,3 +81,12 @@ model Person {
   bio               String?
   teamAffiliation   String?
 }
+
+model Job {
+  id        String   @id @default(cuid())
+  title     String?
+  company   String?
+  location  String?
+  isRequest Boolean?
+  postedAt  DateTime? @default(now())
+}
