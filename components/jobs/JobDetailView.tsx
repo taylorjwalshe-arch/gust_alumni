@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 
 type NormalizedJob = {
   id: string;
@@ -10,6 +11,7 @@ type NormalizedJob = {
   isRequest: boolean | null;
   postedAt: string | null;
   description: string | null;
+  posterId: string | null;
 };
 
 type JobDetailResponse = {
@@ -45,11 +47,14 @@ function companyNode(text: string | null) {
   return <span className="text-gray-700">{t}</span>;
 }
 
+type PersonResp = { item: { id: string; firstName: string | null; lastName: string | null } | null };
+
 export default function JobDetailView() {
   const params = useParams() as Record<string, string | string[]>;
   const raw = params?.id;
   const id = typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : "";
   const [data, setData] = React.useState<JobDetailResponse>({ item: null });
+  const [poster, setPoster] = React.useState<PersonResp["item"]>(null);
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
@@ -60,7 +65,17 @@ export default function JobDetailView() {
       try {
         const res = await fetch(`/api/jobs/${encodeURIComponent(id)}`, { cache: "no-store" });
         const json: JobDetailResponse = await res.json();
-        if (!cancelled) setData(json);
+        if (!cancelled) {
+          setData(json);
+          const pid = json.item?.posterId ?? null;
+          if (pid) {
+            try {
+              const pr = await fetch(`/api/directory/${encodeURIComponent(pid)}`, { cache: "no-store" });
+              const pj: PersonResp = await pr.json();
+              if (!cancelled) setPoster(pj.item);
+            } catch {}
+          }
+        }
       } catch {
         if (!cancelled) setData({ item: null });
       } finally {
@@ -68,9 +83,7 @@ export default function JobDetailView() {
       }
     }
     run();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [id]);
 
   if (loading) return <div className="text-sm text-gray-500">Loading…</div>;
@@ -81,7 +94,7 @@ export default function JobDetailView() {
   const ago = timeAgo(d.postedAt);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold">{d.title ?? "Untitled"}</h1>
@@ -97,6 +110,15 @@ export default function JobDetailView() {
 
       {!isReq && d.location ? <p className="text-sm text-gray-600">{d.location}</p> : null}
       {ago ? <p className="text-xs text-gray-400">Posted {ago}</p> : null}
+
+      {poster ? (
+        <p className="text-sm">
+          Posted by{" "}
+          <Link href={`/directory/${poster.id}`} className="text-blue-600 hover:underline">
+            {(poster.firstName ?? "").trim()} {(poster.lastName ?? "").trim()}
+          </Link>
+        </p>
+      ) : null}
 
       {d.description ? (
         <div className="prose max-w-none whitespace-pre-wrap text-sm text-gray-800">{d.description}</div>

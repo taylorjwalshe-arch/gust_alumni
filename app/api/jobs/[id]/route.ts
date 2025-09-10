@@ -9,9 +9,11 @@ type NormalizedJob = {
   isRequest: boolean | null;
   postedAt: string | null;
   description: string | null;
+  posterId: string | null;
 };
 
 const MODEL_ORDER = ["job", "jobs", "posting", "post", "opportunity"] as const;
+const POSTER_KEYS = ["postedById", "personId", "posterId", "ownerId", "authorId", "createdById", "userId"] as const;
 
 type Delegate = {
   findUnique: (args: unknown) => Promise<unknown | null>;
@@ -24,13 +26,11 @@ function hasDelegate(obj: unknown): obj is Delegate {
   return typeof o.findUnique === "function" && typeof o.findFirst === "function";
 }
 
-function getDelegate():
-  | { name: (typeof MODEL_ORDER)[number]; d: Delegate }
-  | null {
+function getDelegate() {
   const bag = prisma as unknown as Record<string, unknown>;
   for (const name of MODEL_ORDER) {
     const cand = bag[name];
-    if (hasDelegate(cand)) return { name, d: cand };
+    if (hasDelegate(cand)) return { name, d: cand as Delegate };
   }
   return null;
 }
@@ -43,52 +43,40 @@ function normalizeOne(row: unknown, fallbackId: string): NormalizedJob {
   const location = typeof r.location === "string" ? r.location : null;
   const isRequest = typeof r.isRequest === "boolean" ? r.isRequest : null;
   let postedAt: string | null = null;
-  if (r.postedAt instanceof Date) {
-    postedAt = r.postedAt.toISOString();
-  } else if (typeof r.postedAt === "string") {
+  if (r.postedAt instanceof Date) postedAt = r.postedAt.toISOString();
+  else if (typeof r.postedAt === "string") {
     const d = new Date(r.postedAt);
     postedAt = isNaN(d.getTime()) ? null : d.toISOString();
   }
   const description = typeof r.description === "string" ? r.description : null;
-  return { id, title, company, location, isRequest, postedAt, description };
+  let posterId: string | null = null;
+  for (const k of POSTER_KEYS) {
+    if (r[k] != null) { posterId = String(r[k]); break; }
+  }
+  return { id, title, company, location, isRequest, postedAt, description, posterId };
 }
 
-const richWithDesc = {
-  id: true,
-  title: true,
-  company: true,
-  location: true,
-  isRequest: true,
-  postedAt: true,
-  description: true,
-} as const;
+const selectRich = () => {
+  const base: Record<string, true> = { id: true, title: true, company: true, location: true, isRequest: true, postedAt: true, description: true };
+  for (const k of POSTER_KEYS) base[k] = true;
+  return base;
+};
 
-const richNoDesc = {
-  id: true,
-  title: true,
-  company: true,
-  location: true,
-  isRequest: true,
-  postedAt: true,
-} as const;
+const selectNoDesc = () => {
+  const base: Record<string, true> = { id: true, title: true, company: true, location: true, isRequest: true, postedAt: true };
+  for (const k of POSTER_KEYS) base[k] = true;
+  return base;
+};
 
 async function tryUnique(d: Delegate, where: unknown): Promise<unknown | null> {
-  try {
-    return await d.findUnique({ where, select: richWithDesc });
-  } catch {}
-  try {
-    return await d.findUnique({ where, select: richNoDesc });
-  } catch {}
+  try { return await d.findUnique({ where, select: selectRich() }); } catch {}
+  try { return await d.findUnique({ where, select: selectNoDesc() }); } catch {}
   return null;
 }
 
 async function tryFirst(d: Delegate, where: unknown): Promise<unknown | null> {
-  try {
-    return await d.findFirst({ where, select: richWithDesc });
-  } catch {}
-  try {
-    return await d.findFirst({ where, select: richNoDesc });
-  } catch {}
+  try { return await d.findFirst({ where, select: selectRich() }); } catch {}
+  try { return await d.findFirst({ where, select: selectNoDesc() }); } catch {}
   return null;
 }
 
@@ -107,13 +95,9 @@ export async function GET(_req: Request, context: unknown): Promise<Response> {
     row = await tryUnique(d, { id: idParam });
     if (!row) {
       const asNumber = Number(idParam);
-      if (!Number.isNaN(asNumber)) {
-        row = await tryUnique(d, { id: asNumber });
-      }
+      if (!Number.isNaN(asNumber)) row = await tryUnique(d, { id: asNumber });
     }
-    if (!row) {
-      row = await tryFirst(d, { id: idParam });
-    }
+    if (!row) row = await tryFirst(d, { id: idParam });
     if (!row) return safeEmpty;
 
     const item = normalizeOne(row, idParam);
