@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import Link from "next/link";
 
 type JobCardProps = {
   id: string;
@@ -14,7 +15,7 @@ export default function JobCard(props: JobCardProps) {
   const { title, company, location, isRequest, postedAt } = props;
   const dateLabel = postedAt ? new Date(postedAt).toLocaleDateString() : null;
   return (
-    <div className="rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition">
+    <Link href={`/jobs/${props.id}`} className="block rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition">
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold">{title ?? "Untitled"}</h3>
@@ -28,6 +29,6 @@ export default function JobCard(props: JobCardProps) {
       </div>
       {location ? <p className="mt-2 text-sm text-gray-500">{location}</p> : null}
       {dateLabel ? <p className="mt-1 text-xs text-gray-400">Posted {dateLabel}</p> : null}
-    </div>
+    </Link>
   );
 }
