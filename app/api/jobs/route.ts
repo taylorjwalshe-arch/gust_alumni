@@ -8,6 +8,7 @@ type NormalizedJob = {
   location: string | null;
   isRequest: boolean | null;
   postedAt: string | null;
+  description?: string | null;
 };
 
 type JobsListResponse = {
@@ -78,7 +79,8 @@ function normalizeOne(row: unknown, fallbackId: string): NormalizedJob {
     const d = new Date(r.postedAt);
     postedAt = isNaN(d.getTime()) ? null : d.toISOString();
   }
-  return { id, title, company, location, isRequest, postedAt };
+  const description = typeof r.description === "string" ? r.description : undefined;
+  return { id, title, company, location, isRequest, postedAt, description };
 }
 
 export async function GET(req: Request): Promise<Response> {
@@ -102,18 +104,29 @@ export async function GET(req: Request): Promise<Response> {
       ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { company: { contains: q, mode: "insensitive" } }] }
       : {};
 
+    const selectWithDesc: Record<string, true> = {
+      id: true,
+      title: true,
+      company: true,
+      location: true,
+      isRequest: true,
+      postedAt: true,
+      description: true,
+    };
+    const selectNoDesc: Record<string, true> = {
+      id: true,
+      title: true,
+      company: true,
+      location: true,
+      isRequest: true,
+      postedAt: true,
+    };
+
     try {
       items = await delegate.d.findMany({
         where,
         take: pageSize,
-        select: {
-          id: true,
-          title: true,
-          company: true,
-          location: true,
-          isRequest: true,
-          postedAt: true,
-        },
+        select: selectWithDesc,
         orderBy: { postedAt: "desc" },
       });
       total = await delegate.d.count({ where });
@@ -121,24 +134,36 @@ export async function GET(req: Request): Promise<Response> {
     } catch {
       try {
         items = await delegate.d.findMany({
+          where,
           take: pageSize,
-          select: {
-            id: true,
-            title: true,
-            company: true,
-            location: true,
-            isRequest: true,
-            postedAt: true,
-          },
+          select: selectNoDesc,
+          orderBy: { postedAt: "desc" },
         });
-        total = await delegate.d.count();
+        total = await delegate.d.count({ where });
+        serverFiltered = q.length > 0;
       } catch {
         try {
-          items = await delegate.d.findMany({ take: pageSize, select: { id: true } });
+          items = await delegate.d.findMany({
+            take: pageSize,
+            select: selectWithDesc,
+          });
           total = await delegate.d.count();
         } catch {
-          items = [];
-          total = 0;
+          try {
+            items = await delegate.d.findMany({
+              take: pageSize,
+              select: selectNoDesc,
+            });
+            total = await delegate.d.count();
+          } catch {
+            try {
+              items = await delegate.d.findMany({ take: pageSize, select: { id: true } });
+              total = await delegate.d.count();
+            } catch {
+              items = [];
+              total = 0;
+            }
+          }
         }
       }
     }
@@ -172,6 +197,7 @@ export async function POST(req: Request): Promise<Response> {
     const location = typeof payload.location === "string" && payload.location.trim() ? payload.location.trim() : null;
     const isRequest = typeof payload.isRequest === "boolean" ? payload.isRequest : null;
     const posterId = typeof payload.posterId === "string" && payload.posterId.trim() ? payload.posterId.trim() : null;
+    const description = typeof payload.description === "string" && payload.description.trim() ? payload.description.trim() : null;
     const postedAtRaw = typeof payload.postedAt === "string" ? payload.postedAt : null;
     const postedAtValid = postedAtRaw ? new Date(postedAtRaw) : null;
     const postedAt = postedAtValid && !isNaN(postedAtValid.getTime()) ? postedAtValid.toISOString() : new Date().toISOString();
@@ -188,6 +214,7 @@ export async function POST(req: Request): Promise<Response> {
     if (location !== null) dataRich.location = location;
     if (isRequest !== null) dataRich.isRequest = isRequest;
     if (posterId !== null) dataRich.posterId = posterId;
+    if (description !== null) dataRich.description = description;
     dataRich.postedAt = postedAt;
 
     let createdRow: unknown | null = null;
@@ -195,13 +222,13 @@ export async function POST(req: Request): Promise<Response> {
     try {
       createdRow = await write.d.create({
         data: dataRich,
-        select: { id: true, title: true, company: true, location: true, isRequest: true, postedAt: true },
+        select: { id: true, title: true, company: true, location: true, isRequest: true, postedAt: true, description: true },
       });
     } catch {
       try {
         createdRow = await write.d.create({
           data: {},
-          select: { id: true, title: true, company: true, location: true, isRequest: true, postedAt: true },
+          select: { id: true, title: true, company: true, location: true, isRequest: true, postedAt: true, description: true },
         });
       } catch {
         const body: JobCreateResponse = { created: false, item: null, reason: "Create failed" };

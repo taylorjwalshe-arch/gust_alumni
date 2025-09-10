@@ -11,6 +11,7 @@ export default function JobNewForm() {
   const [company, setCompany] = React.useState("");
   const [location, setLocation] = React.useState("");
   const [posterId, setPosterId] = React.useState("");
+  const [description, setDescription] = React.useState("");
   const [isRequest, setIsRequest] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -29,6 +30,7 @@ export default function JobNewForm() {
           company: company || null,
           location: location || null,
           posterId: posterId || null,
+          description: description || null,
           isRequest,
           postedAt: new Date().toISOString(),
         }),
@@ -81,6 +83,16 @@ export default function JobNewForm() {
           value={posterId}
           onChange={(e) => setPosterId(e.target.value)}
           placeholder="paste a Person id"
+          className="mt-1 w-full rounded-2xl border border-gray-300 px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium">Description</label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Role details, qualifications, how to apply…"
+          rows={6}
           className="mt-1 w-full rounded-2xl border border-gray-300 px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
