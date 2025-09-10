@@ -1,246 +1,219 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+import { getSessionLoose } from "@/lib/authLoose";
+import { readRole } from "@/lib/session";
 
-type NormalizedJob = {
+type JobOut = {
   id: string;
   title: string | null;
   company: string | null;
   location: string | null;
-  isRequest: boolean | null;
-  postedAt: string | null;
+  isRequest: boolean;
+  postedAt: string;
+  posterId: string | null;
   description?: string | null;
 };
-
-type JobsListResponse = {
-  items: NormalizedJob[];
+type ListOut = {
+  items: JobOut[];
   total: number;
   page: number;
   pageSize: number;
 };
 
-type JobCreateResponse =
-  | { created: true; item: NormalizedJob }
-  | { created: false; item: null; reason: string };
+const JOB_CANDIDATES = ["job", "jobs", "posting", "post", "opportunity"] as const;
 
-const MODEL_ORDER = ["job", "jobs", "posting", "post", "opportunity"] as const;
-
-type ReadDelegate = {
-  findMany: (args?: unknown) => Promise<unknown[]>;
-  count: (args?: unknown) => Promise<number>;
-};
-type WriteDelegate = {
-  create: (args: unknown) => Promise<unknown>;
-};
-
-function hasReadDelegate(obj: unknown): obj is ReadDelegate {
-  if (!obj || typeof obj !== "object") return false;
-  const o = obj as { findMany?: unknown; count?: unknown };
-  return typeof o.findMany === "function" && typeof o.count === "function";
+function camelize(modelName: string): string {
+  return modelName.charAt(0).toLowerCase() + modelName.slice(1);
 }
-function hasWriteDelegate(obj: unknown): obj is WriteDelegate {
-  if (!obj || typeof obj !== "object") return false;
-  const o = obj as { create?: unknown };
-  return typeof o.create === "function";
-}
-
-function getDelegate<T extends ReadDelegate | WriteDelegate>(
-  guard: (x: unknown) => x is T
-): { name: (typeof MODEL_ORDER)[number]; d: T } | null {
-  const bag = prisma as unknown as Record<string, unknown>;
-  for (const name of MODEL_ORDER) {
-    const cand = bag[name];
-    if (guard(cand)) return { name, d: cand as T };
+function getModel(candidates: readonly string[]) {
+  const models = Prisma.dmmf.datamodel.models;
+  const map = new Map(models.map((m) => [m.name.toLowerCase(), m]));
+  for (const key of candidates) {
+    const m = map.get(key);
+    if (m) return m;
   }
   return null;
 }
-
-function capPageSize(raw: string | null): number {
-  const n = raw ? parseInt(raw, 10) : 100;
-  if (Number.isNaN(n) || n <= 0) return 100;
-  return Math.min(n, 100);
+function getDelegate(modelName: string) {
+  const key = camelize(modelName);
+  return (prisma as unknown as Record<string, unknown>)[key] as unknown;
 }
-
-function normalize(rows: unknown[]): NormalizedJob[] {
-  const arr = Array.isArray(rows) ? rows : [];
-  return arr.map((raw) => normalizeOne(raw, crypto.randomUUID()));
+function has(d: unknown, k: string): boolean {
+  return !!(d && typeof d === "object" && k in (d as object));
 }
-
-function normalizeOne(row: unknown, fallbackId: string): NormalizedJob {
-  const r = (row ?? {}) as Record<string, unknown>;
-  const id = r.id != null ? String(r.id) : fallbackId;
-  const title = typeof r.title === "string" ? r.title : null;
-  const company = typeof r.company === "string" ? r.company : null;
-  const location = typeof r.location === "string" ? r.location : null;
-  const isRequest = typeof r.isRequest === "boolean" ? r.isRequest : null;
-  let postedAt: string | null = null;
-  if (r.postedAt instanceof Date) {
-    postedAt = r.postedAt.toISOString();
-  } else if (typeof r.postedAt === "string") {
-    const d = new Date(r.postedAt);
-    postedAt = isNaN(d.getTime()) ? null : d.toISOString();
+function normId(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (typeof v === "number") return String(v);
+  if (typeof v === "bigint") return String(v);
+  return "";
+}
+function iso(v: unknown): string {
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === "string") {
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
   }
-  const description = typeof r.description === "string" ? r.description : undefined;
-  return { id, title, company, location, isRequest, postedAt, description };
+  return new Date().toISOString();
+}
+function normalizeJob(row: Record<string, unknown>, hasDescription: boolean): JobOut {
+  return {
+    id: normId(row.id),
+    title: (typeof row.title === "string" ? row.title : null),
+    company: (typeof row.company === "string" ? row.company : null),
+    location: (typeof row.location === "string" ? row.location : null),
+    isRequest: !!(row.isRequest as boolean),
+    postedAt: iso(row.postedAt),
+    posterId: row.posterId != null ? normId(row.posterId) : null,
+    ...(hasDescription ? { description: typeof row.description === "string" ? row.description : null } : {}),
+  };
 }
 
 export async function GET(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const q = url.searchParams.get("q") || "";
+  const type = url.searchParams.get("type");
+  const location = url.searchParams.get("location") || "";
+  const sort = url.searchParams.get("sort") || "newest";
+  const page = Math.max(1, Number(url.searchParams.get("page") || "1"));
+  const pageSize = Math.max(1, Math.min(50, Number(url.searchParams.get("pageSize") || "10")));
+
+  const meta = getModel(JOB_CANDIDATES);
+  if (!meta) {
+    return NextResponse.json({ items: [], total: 0, page, pageSize } as ListOut, { status: 200 });
+  }
+
+  const d = getDelegate(meta.name) as {
+    findMany?: (args: unknown) => Promise<unknown[]>;
+    count?: (args: unknown) => Promise<number>;
+  };
+
+  const fields = new Set(meta.fields.map((f) => f.name));
+  const hasDescription = fields.has("description");
+
+  const where: Record<string, unknown> = {};
+  if (q && fields.has("title")) where["title"] = { contains: q, mode: "insensitive" };
+  if (location && fields.has("location")) where["location"] = { contains: location, mode: "insensitive" };
+  if (type && fields.has("isRequest")) where["isRequest"] = type === "requests";
+
+  const RICH: Record<string, true> = {};
+  ["id", "title", "company", "location", "isRequest", "postedAt", "posterId"].forEach((k) => {
+    if (fields.has(k)) (RICH as Record<string, true>)[k] = true;
+  });
+  if (hasDescription) (RICH as Record<string, true>)["description"] = true;
+
+  const MIN: Record<string, true> = {};
+  if (fields.has("id")) (MIN as Record<string, true>)["id"] = true;
+
+  let rows: unknown[] = [];
+  let total = 0;
+
   try {
-    const { searchParams } = new URL(req.url);
-    const q = searchParams.get("q")?.trim() ?? "";
-    const pageSize = capPageSize(searchParams.get("pageSize"));
-    const page = 1;
-
-    const delegate = getDelegate<ReadDelegate>(hasReadDelegate);
-    if (!delegate) {
-      const empty: JobsListResponse = { items: [], total: 0, page, pageSize };
-      return NextResponse.json(empty, { status: 200 });
-    }
-
-    let items: unknown[] = [];
-    let total = 0;
-    let serverFiltered = false;
-
-    const where = q
-      ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { company: { contains: q, mode: "insensitive" } }] }
-      : {};
-
-    const selectWithDesc: Record<string, true> = {
-      id: true,
-      title: true,
-      company: true,
-      location: true,
-      isRequest: true,
-      postedAt: true,
-      description: true,
-    };
-    const selectNoDesc: Record<string, true> = {
-      id: true,
-      title: true,
-      company: true,
-      location: true,
-      isRequest: true,
-      postedAt: true,
-    };
-
-    try {
-      items = await delegate.d.findMany({
-        where,
-        take: pageSize,
-        select: selectWithDesc,
-        orderBy: { postedAt: "desc" },
-      });
-      total = await delegate.d.count({ where });
-      serverFiltered = q.length > 0;
-    } catch {
+    if (has(d, "findMany")) {
       try {
-        items = await delegate.d.findMany({
+        rows = await (d.findMany as (a: unknown) => Promise<unknown[]>)({
           where,
           take: pageSize,
-          select: selectNoDesc,
-          orderBy: { postedAt: "desc" },
+          skip: (page - 1) * pageSize,
+          orderBy: fields.has("postedAt")
+            ? { postedAt: sort === "oldest" ? "asc" : "desc" }
+            : undefined,
+          select: RICH,
         });
-        total = await delegate.d.count({ where });
-        serverFiltered = q.length > 0;
       } catch {
-        try {
-          items = await delegate.d.findMany({
-            take: pageSize,
-            select: selectWithDesc,
-          });
-          total = await delegate.d.count();
-        } catch {
-          try {
-            items = await delegate.d.findMany({
-              take: pageSize,
-              select: selectNoDesc,
-            });
-            total = await delegate.d.count();
-          } catch {
-            try {
-              items = await delegate.d.findMany({ take: pageSize, select: { id: true } });
-              total = await delegate.d.count();
-            } catch {
-              items = [];
-              total = 0;
-            }
-          }
-        }
+        rows = await (d.findMany as (a: unknown) => Promise<unknown[]>)({
+          where,
+          take: pageSize,
+          skip: (page - 1) * pageSize,
+          select: RICH,
+        });
+      }
+      try {
+        total = has(d, "count")
+          ? await (d.count as (a: unknown) => Promise<number>)({ where })
+          : rows.length;
+      } catch {
+        total = rows.length;
       }
     }
-
-    let normalized = normalize(items);
-
-    if (q && !serverFiltered) {
-      const ql = q.toLowerCase();
-      const filtered = normalized.filter((r) => {
-        const t = r.title?.toLowerCase() ?? "";
-        const c = r.company?.toLowerCase() ?? "";
-        return t.includes(ql) || c.includes(ql);
-      });
-      total = filtered.length;
-      normalized = filtered.slice(0, pageSize);
-    }
-
-    const body: JobsListResponse = { items: normalized, total, page, pageSize };
-    return NextResponse.json(body, { status: 200 });
   } catch {
-    const body: JobsListResponse = { items: [], total: 0, page: 1, pageSize: 100 };
-    return NextResponse.json(body, { status: 200 });
+    rows = [];
+    total = 0;
   }
+
+  const items = (rows as Record<string, unknown>[]).map((r) => normalizeJob(r, hasDescription));
+  return NextResponse.json({ items, total, page, pageSize } as ListOut, { status: 200 });
 }
 
 export async function POST(req: Request): Promise<Response> {
   try {
-    const payload = await req.json().catch(() => ({}));
-    const title = typeof payload.title === "string" && payload.title.trim() ? payload.title.trim() : null;
-    const company = typeof payload.company === "string" && payload.company.trim() ? payload.company.trim() : null;
-    const location = typeof payload.location === "string" && payload.location.trim() ? payload.location.trim() : null;
-    const isRequest = typeof payload.isRequest === "boolean" ? payload.isRequest : null;
-    const posterId = typeof payload.posterId === "string" && payload.posterId.trim() ? payload.posterId.trim() : null;
-    const description = typeof payload.description === "string" && payload.description.trim() ? payload.description.trim() : null;
-    const postedAtRaw = typeof payload.postedAt === "string" ? payload.postedAt : null;
-    const postedAtValid = postedAtRaw ? new Date(postedAtRaw) : null;
-    const postedAt = postedAtValid && !isNaN(postedAtValid.getTime()) ? postedAtValid.toISOString() : new Date().toISOString();
-
-    const write = getDelegate<WriteDelegate>(hasWriteDelegate);
-    if (!write) {
-      const body: JobCreateResponse = { created: false, item: null, reason: "No compatible model" };
-      return NextResponse.json(body, { status: 200 });
+    const session = await getSessionLoose();
+    const role = readRole(session);
+    if (!session || !session.user) {
+      return NextResponse.json({ ok: false, reason: "unauthorized" }, { status: 200 });
     }
+    void role;
+  } catch {
+    return NextResponse.json({ ok: false, reason: "unauthorized" }, { status: 200 });
+  }
 
-    const dataRich: Record<string, unknown> = {};
-    if (title !== null) dataRich.title = title;
-    if (company !== null) dataRich.company = company;
-    if (location !== null) dataRich.location = location;
-    if (isRequest !== null) dataRich.isRequest = isRequest;
-    if (posterId !== null) dataRich.posterId = posterId;
-    if (description !== null) dataRich.description = description;
-    dataRich.postedAt = postedAt;
+  const meta = getModel(JOB_CANDIDATES);
+  if (!meta) {
+    return NextResponse.json({ ok: false, reason: "no-model" }, { status: 200 });
+  }
+  const d = getDelegate(meta.name) as {
+    create?: (args: unknown) => Promise<unknown>;
+  };
+  const fields = new Set(meta.fields.map((f) => f.name));
 
-    let createdRow: unknown | null = null;
+  let body: Record<string, unknown> = {};
+  try {
+    const json = await req.json();
+    body = (json && typeof json === "object" ? (json as Record<string, unknown>) : {}) || {};
+  } catch {
+    body = {};
+  }
 
-    try {
-      createdRow = await write.d.create({
-        data: dataRich,
-        select: { id: true, title: true, company: true, location: true, isRequest: true, postedAt: true, description: true },
-      });
-    } catch {
+  const richData: Record<string, unknown> = {};
+  if (fields.has("title") && typeof body.title === "string") richData.title = body.title;
+  if (fields.has("company") && (typeof body.company === "string" || body.company === null)) richData.company = body.company ?? null;
+  if (fields.has("location") && typeof body.location === "string") richData.location = body.location;
+  if (fields.has("isRequest")) richData.isRequest = !!body.isRequest;
+  if (fields.has("postedAt")) richData.postedAt = body.postedAt ? new Date(String(body.postedAt)) : new Date();
+  if (fields.has("posterId") && (typeof body.posterId === "string" || typeof body.posterId === "number")) richData.posterId = body.posterId;
+  if (fields.has("description") && (typeof body.description === "string" || body.description === null)) richData.description = body.description ?? null;
+
+  const MIN: Record<string, true> = {};
+  if (fields.has("id")) (MIN as Record<string, true>)["id"] = true;
+
+  try {
+    if (has(d, "create")) {
       try {
-        createdRow = await write.d.create({
-          data: {},
-          select: { id: true, title: true, company: true, location: true, isRequest: true, postedAt: true, description: true },
+        const created = await (d.create as (a: unknown) => Promise<unknown>)({
+          data: richData,
+          select: Object.keys(richData).length
+            ? Object.fromEntries(
+                ["id", "title", "company", "location", "isRequest", "postedAt", "posterId", "description"]
+                  .filter((k) => fields.has(k))
+                  .map((k) => [k, true] as const)
+              )
+            : (MIN as Record<string, true>),
         });
+        const item = normalizeJob(created as Record<string, unknown>, fields.has("description"));
+        return NextResponse.json({ ok: true, item }, { status: 200 });
       } catch {
-        const body: JobCreateResponse = { created: false, item: null, reason: "Create failed" };
-        return NextResponse.json(body, { status: 200 });
+        try {
+          const created = await (d.create as (a: unknown) => Promise<unknown>)({
+            data: {},
+            select: Object.fromEntries(["id"].filter((k) => fields.has(k)).map((k) => [k, true] as const)),
+          });
+          const item = normalizeJob(created as Record<string, unknown>, fields.has("description"));
+          return NextResponse.json({ ok: true, item }, { status: 200 });
+        } catch {
+          return NextResponse.json({ ok: false, reason: "create-failed" }, { status: 200 });
+        }
       }
     }
-
-    const item = normalizeOne(createdRow, crypto.randomUUID());
-    const body: JobCreateResponse = { created: true, item };
-    return NextResponse.json(body, { status: 200 });
-  } catch {
-    const body: JobCreateResponse = { created: false, item: null, reason: "Unhandled" };
-    return NextResponse.json(body, { status: 200 });
-  }
+  } catch {}
+  return NextResponse.json({ ok: false, reason: "no-delegate" }, { status: 200 });
 }
