@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import NewSocialForm from "@/components/social/NewSocialForm";
 
 type FeedItem = {
   kind: "Job" | "Directory" | "Mentor" | "Social";
@@ -50,7 +52,11 @@ export default async function FeedPage() {
   list.sort((a, b) => (a.postedAt < b.postedAt ? 1 : a.postedAt > b.postedAt ? -1 : 0));
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-6">
+      <Suspense fallback={null}>
+        <NewSocialForm />
+      </Suspense>
+
       <h1 className="text-2xl font-bold">Feed</h1>
       <ul className="space-y-3">
         {list.map((item) => (

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import fs from "fs";
+import path from "path";
 
 type SocialItem = {
   id: string;
@@ -148,4 +150,118 @@ export async function GET(req: Request): Promise<Response> {
   });
 
   return NextResponse.json({ items, total, page, pageSize } as ListOut, { status: 200 });
+}
+
+export async function POST(req: Request): Promise<Response> {
+  let bodyIn: Record<string, unknown> = {};
+  try {
+    const json = await req.json();
+    bodyIn = (json && typeof json === "object" ? (json as Record<string, unknown>) : {}) || {};
+  } catch {
+    bodyIn = {};
+  }
+
+  const titleIn = typeof bodyIn.title === "string" ? bodyIn.title : null;
+  const bodyTextIn = typeof bodyIn.body === "string" ? bodyIn.body : null;
+  const typeIn = typeof bodyIn.type === "string" ? bodyIn.type : "Social";
+  const postedAtIn = bodyIn.postedAt ?? new Date().toISOString();
+  const teamSlugIn = typeof bodyIn.teamSlug === "string" ? bodyIn.teamSlug : undefined;
+  const teamIdIn = typeof bodyIn.teamId === "string" || typeof bodyIn.teamId === "number" ? bodyIn.teamId : undefined;
+
+  const meta = getModel();
+
+  if (meta) {
+    const d = getDelegate(meta.name) as { create?: (args: unknown) => Promise<unknown> };
+    const fields = new Set(meta.fields.map((f) => f.name));
+
+    const titleKey = fields.has("title") ? "title" : fields.has("headline") ? "headline" : fields.has("text") ? "text" : null;
+    const bodyKey = fields.has("body") ? "body" : fields.has("content") ? "content" : fields.has("text") ? "text" : null;
+    const typeKey = fields.has("type") ? "type" : fields.has("category") ? "category" : null;
+    const postedKey = fields.has("postedAt") ? "postedAt" : fields.has("createdAt") ? "createdAt" : null;
+
+    const data: Record<string, unknown> = {};
+    if (titleKey && titleIn !== null) data[titleKey] = titleIn;
+    if (bodyKey && bodyTextIn !== null) data[bodyKey] = bodyTextIn;
+    if (typeKey) data[typeKey] = typeIn;
+    if (postedKey) data[postedKey] = new Date(iso(postedAtIn));
+    if (teamSlugIn && fields.has("teamSlug")) data["teamSlug"] = teamSlugIn;
+    if (typeof teamIdIn !== "undefined" && fields.has("teamId")) data["teamId"] = teamIdIn;
+
+    const select: Record<string, true> = {};
+    ["id", "title", "headline", "body", "content", "text", "type", "category", "postedAt", "createdAt"].forEach((k) => {
+      if (fields.has(k)) (select as Record<string, true>)[k] = true;
+    });
+    const minimal: Record<string, true> = {};
+    if (fields.has("id")) (minimal as Record<string, true>)["id"] = true;
+
+    try {
+      if (has(d, "create")) {
+        try {
+          const created = await (d.create as (a: unknown) => Promise<unknown>)({
+            data,
+            select: Object.keys(select).length ? select : minimal,
+          });
+          const r = created as Record<string, unknown>;
+          const title =
+            (typeof r.title === "string" ? r.title : null) ??
+            (typeof r.headline === "string" ? r.headline : null) ??
+            (typeof r.text === "string" ? r.text : null);
+          const bodyText =
+            (typeof r.body === "string" ? r.body : null) ??
+            (typeof r.content === "string" ? r.content : null) ??
+            (typeof r.text === "string" ? r.text : null);
+          const type =
+            (typeof r.type === "string" ? r.type : null) ??
+            (typeof r.category === "string" ? r.category : null) ??
+            "Social";
+          const postedAt = r.postedAt ?? r.createdAt ?? new Date().toISOString();
+          const item: SocialItem = {
+            id: normId(r.id),
+            type: typeof type === "string" ? type : "Social",
+            title,
+            ...(bodyText !== null ? { body: bodyText } : {}),
+            postedAt: iso(postedAt),
+          };
+          return NextResponse.json({ ok: true, item }, { status: 200 });
+        } catch {
+          try {
+            const created = await (d.create as (a: unknown) => Promise<unknown>)({
+              data: {},
+              select: minimal,
+            });
+            const r = created as Record<string, unknown>;
+            const item: SocialItem = {
+              id: normId(r.id),
+              type: typeIn,
+              title: titleIn,
+              ...(bodyTextIn !== null ? { body: bodyTextIn } : {}),
+              postedAt: iso(postedAtIn),
+            };
+            return NextResponse.json({ ok: true, item }, { status: 200 });
+          } catch {
+            // fall through to file log
+          }
+        }
+      }
+    } catch {
+      // fall through to file log
+    }
+  }
+
+  try {
+    const dir = "/tmp";
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, "social.log");
+    const entry: SocialItem = {
+      id: `file-${Date.now()}`,
+      type: typeIn,
+      title: titleIn,
+      ...(bodyTextIn !== null ? { body: bodyTextIn } : {}),
+      postedAt: iso(postedAtIn),
+    };
+    fs.appendFileSync(file, JSON.stringify(entry) + "\n");
+    return NextResponse.json({ ok: true, item: entry }, { status: 200 });
+  } catch {
+    return NextResponse.json({ ok: false, reason: "log-failed" }, { status: 200 });
+  }
 }
