@@ -1,5 +1,4 @@
 "use client";
-
 import React from "react";
 import JobCard from "./JobCard";
 
@@ -35,9 +34,7 @@ export default function JobsView() {
       const params = new URLSearchParams();
       params.set("pageSize", "100");
       if (query.trim()) params.set("q", query.trim());
-      const res = await fetch(`/api/jobs?${params.toString()}`, {
-        cache: "no-store",
-      });
+      const res = await fetch(`/api/jobs?${params.toString()}`, { cache: "no-store" });
       const json: JobsResponse = await res.json();
       setData(json);
     } catch {
@@ -59,9 +56,7 @@ export default function JobsView() {
   }, [q, fetchData]);
 
   const countLabel =
-    data.items.length === 0 && data.total === 0
-      ? "0 of 0"
-      : `${data.items.length} of ${data.total}`;
+    data.items.length === 0 && data.total === 0 ? "0 of 0" : `${data.items.length} of ${data.total}`;
 
   return (
     <div className="space-y-6">
@@ -75,7 +70,6 @@ export default function JobsView() {
         />
         <div className="text-sm text-gray-600 whitespace-nowrap">{countLabel}</div>
       </div>
-
       {loading ? (
         <div className="text-sm text-gray-500">Loading…</div>
       ) : data.items.length === 0 ? (

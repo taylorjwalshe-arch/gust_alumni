@@ -1,5 +1,4 @@
 "use client";
-
 import React from "react";
 
 type JobCardProps = {
@@ -14,7 +13,6 @@ type JobCardProps = {
 export default function JobCard(props: JobCardProps) {
   const { title, company, location, isRequest, postedAt } = props;
   const dateLabel = postedAt ? new Date(postedAt).toLocaleDateString() : null;
-
   return (
     <div className="rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition">
       <div className="flex items-start justify-between">
@@ -28,12 +26,8 @@ export default function JobCard(props: JobCardProps) {
           </span>
         ) : null}
       </div>
-      {location ? (
-        <p className="mt-2 text-sm text-gray-500">{location}</p>
-      ) : null}
-      {dateLabel ? (
-        <p className="mt-1 text-xs text-gray-400">Posted {dateLabel}</p>
-      ) : null}
+      {location ? <p className="mt-2 text-sm text-gray-500">{location}</p> : null}
+      {dateLabel ? <p className="mt-1 text-xs text-gray-400">Posted {dateLabel}</p> : null}
     </div>
   );
 }
