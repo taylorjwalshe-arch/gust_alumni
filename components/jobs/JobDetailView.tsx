@@ -31,7 +31,7 @@ function timeAgo(iso: string | null): string | null {
   return "just now";
 }
 
-function asCompanyNode(text: string | null) {
+function companyNode(text: string | null) {
   if (!text) return <span className="text-gray-700">Unknown company</span>;
   const t = text.trim();
   const looksUrl = /^https?:\/\//i.test(t);
@@ -77,6 +77,7 @@ export default function JobDetailView() {
   if (!data.item) return <div className="text-sm text-gray-500">Job not found.</div>;
 
   const d = data.item;
+  const isReq = d.isRequest === true;
   const ago = timeAgo(d.postedAt);
 
   return (
@@ -84,16 +85,17 @@ export default function JobDetailView() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold">{d.title ?? "Untitled"}</h1>
-          <p className="mt-1">{asCompanyNode(d.company)}</p>
+          <p className="mt-1">{isReq ? <span className="text-gray-700">Anonymous request</span> : companyNode(d.company)}</p>
+          {isReq ? <p className="mt-1 text-xs text-gray-500">Poster chose to remain anonymous. Use the button below to offer help.</p> : null}
         </div>
-        {d.isRequest ? (
+        {isReq ? (
           <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
             Request
           </span>
         ) : null}
       </div>
 
-      {d.location ? <p className="text-sm text-gray-600">{d.location}</p> : null}
+      {!isReq && d.location ? <p className="text-sm text-gray-600">{d.location}</p> : null}
       {ago ? <p className="text-xs text-gray-400">Posted {ago}</p> : null}
 
       {d.description ? (
@@ -108,7 +110,7 @@ export default function JobDetailView() {
           className="rounded-2xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
           onClick={() => {}}
         >
-          Contact poster
+          {isReq ? "Request help" : "Contact poster"}
         </button>
       </div>
     </div>
