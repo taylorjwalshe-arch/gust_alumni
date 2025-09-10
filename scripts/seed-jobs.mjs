@@ -2,6 +2,7 @@ import { PrismaClient, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
 const CANDIDATES = ["job", "jobs", "posting", "post", "opportunity"];
+const PERSON_CANDIDATES = ["person", "people", "alumni", "user", "member"];
 
 function findModelAndFields() {
   const models = Prisma.dmmf.datamodel.models;
@@ -16,6 +17,20 @@ function findModelAndFields() {
   return null;
 }
 
+function findPersonDelegate() {
+  const models = Prisma.dmmf.datamodel.models;
+  const nameMap = new Map(models.map((m) => [m.name.toLowerCase(), m]));
+  for (const n of PERSON_CANDIDATES) {
+    const m = nameMap.get(n);
+    if (m) {
+      const key = m.name.charAt(0).toLowerCase() + m.name.slice(1);
+      const d = prisma[key];
+      if (d && typeof d.findMany === "function") return { modelName: m.name, delegate: d };
+    }
+  }
+  return null;
+}
+
 function pick(obj, fields) {
   const out = {};
   for (const k of Object.keys(obj)) {
@@ -25,7 +40,7 @@ function pick(obj, fields) {
 }
 
 function sampleRows() {
-  const base = [
+  return [
     { title: "Software Engineer", company: "Google", location: "NYC, NY", isRequest: false, postedAt: new Date(Date.now() - 1 * 864e5) },
     { title: "Analyst", company: "Goldman Sachs", location: "New York, NY", isRequest: false, postedAt: new Date(Date.now() - 2 * 864e5) },
     { title: "Product Manager", company: "Meta", location: "Seattle, WA", isRequest: false, postedAt: new Date(Date.now() - 3 * 864e5) },
@@ -37,7 +52,6 @@ function sampleRows() {
     { title: "Consulting Request", company: null, location: "Remote", isRequest: true, postedAt: new Date(Date.now() - 9 * 864e5) },
     { title: "Design Intern", company: "Figma", location: "SF, CA", isRequest: false, postedAt: new Date(Date.now() - 10 * 864e5) }
   ];
-  return base;
 }
 
 async function main() {
@@ -46,17 +60,34 @@ async function main() {
     console.log("No compatible jobs model found. Nothing seeded.");
     return;
   }
-  const delegate = prisma[meta.modelName.charAt(0).toLowerCase() + meta.modelName.slice(1)];
-  const rows = sampleRows().map((r) => pick(r, meta.fields));
+  const jobKey = meta.modelName.charAt(0).toLowerCase() + meta.modelName.slice(1);
+  const job = prisma[jobKey];
+
+  let personIds = [];
+  const person = findPersonDelegate();
+  if (person) {
+    try {
+      const rows = await person.delegate.findMany({ take: 5, select: { id: true } });
+      personIds = (rows ?? []).map((r) => String(r.id)).filter(Boolean);
+    } catch {}
+  }
+
+  const rows = sampleRows().map((r, i) => {
+    const base = pick(r, meta.fields);
+    if (meta.fields.has("posterId") && personIds.length) {
+      base.posterId = personIds[i % personIds.length];
+    }
+    return base;
+  });
 
   try {
-    const res = await delegate.createMany({ data: rows });
+    const res = await job.createMany({ data: rows });
     console.log(`Seeded jobs via createMany: ${res.count}`);
   } catch {
     let count = 0;
     for (const r of rows) {
       try {
-        await delegate.create({ data: r });
+        await job.create({ data: r });
         count++;
       } catch {}
     }

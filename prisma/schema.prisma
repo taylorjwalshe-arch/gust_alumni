@@ -89,4 +89,5 @@ model Job {
   location  String?
   isRequest Boolean?
   postedAt  DateTime? @default(now())
+  posterId  String?
 }

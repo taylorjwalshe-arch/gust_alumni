@@ -170,8 +170,8 @@ export async function POST(req: Request): Promise<Response> {
     const title = typeof payload.title === "string" && payload.title.trim() ? payload.title.trim() : null;
     const company = typeof payload.company === "string" && payload.company.trim() ? payload.company.trim() : null;
     const location = typeof payload.location === "string" && payload.location.trim() ? payload.location.trim() : null;
-    const isRequest =
-      typeof payload.isRequest === "boolean" ? payload.isRequest : null;
+    const isRequest = typeof payload.isRequest === "boolean" ? payload.isRequest : null;
+    const posterId = typeof payload.posterId === "string" && payload.posterId.trim() ? payload.posterId.trim() : null;
     const postedAtRaw = typeof payload.postedAt === "string" ? payload.postedAt : null;
     const postedAtValid = postedAtRaw ? new Date(postedAtRaw) : null;
     const postedAt = postedAtValid && !isNaN(postedAtValid.getTime()) ? postedAtValid.toISOString() : new Date().toISOString();
@@ -187,6 +187,7 @@ export async function POST(req: Request): Promise<Response> {
     if (company !== null) dataRich.company = company;
     if (location !== null) dataRich.location = location;
     if (isRequest !== null) dataRich.isRequest = isRequest;
+    if (posterId !== null) dataRich.posterId = posterId;
     dataRich.postedAt = postedAt;
 
     let createdRow: unknown | null = null;
