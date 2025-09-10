@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { getSessionLoose } from "@/lib/authLoose";
+import { readRole } from "@/lib/session";
 
 type CreateManyResult = { count: number };
 
@@ -95,8 +97,21 @@ export async function POST(req: Request): Promise<Response> {
   if (!token || !expected || token !== expected) {
     return NextResponse.json({ seeded: false, reason: "Unauthorized" }, { status: 200 });
   }
+
   if (!isPreview && !allowLocal) {
     return NextResponse.json({ seeded: false, reason: "Not allowed in this environment" }, { status: 200 });
+  }
+
+  if (allowLocal) {
+    try {
+      const session = await getSessionLoose();
+      const role = readRole(session);
+      if (!session || !session.user || role !== "admin") {
+        return NextResponse.json({ seeded: false, reason: "Admin role required locally" }, { status: 200 });
+      }
+    } catch {
+      return NextResponse.json({ seeded: false, reason: "Admin role required locally" }, { status: 200 });
+    }
   }
 
   const peopleMeta = getModelAndFields(["person", "people", "alumni", "user", "member"]);
@@ -118,7 +133,7 @@ export async function POST(req: Request): Promise<Response> {
           let c = 0;
           for (const r of rows) {
             try {
-              await d.create({ data: r });
+              await (d as { create: (a: unknown) => Promise<unknown> }).create({ data: r });
               c++;
             } catch {}
           }
@@ -132,7 +147,7 @@ export async function POST(req: Request): Promise<Response> {
       const d = getDelegate(peopleMeta.modelName);
       if (hasRead(d)) {
         try {
-          const rows = await d.findMany({ take: 5, select: { id: true } as unknown });
+          const rows = await (d as { findMany: (a: unknown) => Promise<unknown[]> }).findMany({ take: 5, select: { id: true } as unknown });
           personIds = (rows ?? [])
             .map((r) => (r && typeof (r as Record<string, unknown>).id !== "undefined" ? String((r as Record<string, unknown>).id) : ""))
             .filter(Boolean);
@@ -157,14 +172,16 @@ export async function POST(req: Request): Promise<Response> {
           return base;
         });
         try {
-          const res = d.createMany ? await d.createMany({ data: rows }) : ({ count: 0 } as CreateManyResult);
+          const res = (d as { createMany?: (a: unknown) => Promise<CreateManyResult> }).createMany
+            ? await (d as { createMany: (a: unknown) => Promise<CreateManyResult> }).createMany({ data: rows })
+            : ({ count: 0 } as CreateManyResult);
           jobsCount = res?.count ?? 0;
-          if (!d.createMany) throw new Error("no createMany");
+          if (!(d as { createMany?: unknown }).createMany) throw new Error("no createMany");
         } catch {
           let c = 0;
           for (const r of rows) {
             try {
-              await d.create({ data: r });
+              await (d as { create: (a: unknown) => Promise<unknown> }).create({ data: r });
               c++;
             } catch {}
           }
