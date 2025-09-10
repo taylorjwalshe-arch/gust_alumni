@@ -1,46 +1,41 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { getSessionLoose } from "@/lib/authLoose";
-import { readRole } from "@/lib/session";
 
-type JobOut = {
+type JobItem = {
   id: string;
   title: string | null;
   company: string | null;
   location: string | null;
   isRequest: boolean;
   postedAt: string;
-  posterId: string | null;
-  description?: string | null;
+  posterId?: string | null;
+  teamSlug?: string | null;
 };
-type ListOut = {
-  items: JobOut[];
-  total: number;
-  page: number;
-  pageSize: number;
-};
+type ListOut = { items: JobItem[]; total: number; page: number; pageSize: number };
+type CreateOut = { ok: boolean; item?: JobItem; reason?: string };
 
-const JOB_CANDIDATES = ["job", "jobs", "posting", "post", "opportunity"] as const;
+const CANDIDATES = ["job", "jobs", "posting", "post", "opportunity"] as const;
 
-function camelize(modelName: string): string {
-  return modelName.charAt(0).toLowerCase() + modelName.slice(1);
+function camel(name: string): string {
+  return name.charAt(0).toLowerCase() + name.slice(1);
 }
-function getModel(candidates: readonly string[]) {
+function getModel() {
   const models = Prisma.dmmf.datamodel.models;
   const map = new Map(models.map((m) => [m.name.toLowerCase(), m]));
-  for (const key of candidates) {
+  for (const key of CANDIDATES) {
     const m = map.get(key);
     if (m) return m;
   }
   return null;
 }
 function getDelegate(modelName: string) {
-  const key = camelize(modelName);
+  const key = camel(modelName);
   return (prisma as unknown as Record<string, unknown>)[key] as unknown;
 }
-function has(d: unknown, k: string): boolean {
-  return !!(d && typeof d === "object" && k in (d as object));
+function has(o: unknown, k: string): boolean {
+  return !!(o && typeof o === "object" && k in (o as object));
 }
 function normId(v: unknown): string {
   if (typeof v === "string") return v;
@@ -56,57 +51,49 @@ function iso(v: unknown): string {
   }
   return new Date().toISOString();
 }
-function normalizeJob(row: Record<string, unknown>, hasDescription: boolean): JobOut {
-  return {
-    id: normId(row.id),
-    title: typeof row.title === "string" ? row.title : null,
-    company: typeof row.company === "string" ? row.company : null,
-    location: typeof row.location === "string" ? row.location : null,
-    isRequest: !!(row.isRequest as boolean),
-    postedAt: iso(row.postedAt),
-    posterId: row.posterId != null ? normId(row.posterId) : null,
-    ...(hasDescription ? { description: typeof row.description === "string" ? row.description : null } : {}),
-  };
-}
 
-export async function GET(req: Request): Promise<Response> {
+export async function GET(req: Request, _ctx: unknown): Promise<Response> {
   const url = new URL(req.url);
   const q = url.searchParams.get("q") || "";
-  const type = url.searchParams.get("type");
-  const location = url.searchParams.get("location") || "";
-  const sort = url.searchParams.get("sort") || "newest";
   const team = url.searchParams.get("team") || "";
+  const location = url.searchParams.get("location") || "";
+  const type = url.searchParams.get("type") || ""; // "jobs" | "requests" | ""
+  const sort = url.searchParams.get("sort") || "newest"; // "newest" | "oldest"
   const page = Math.max(1, Number(url.searchParams.get("page") || "1"));
-  const pageSize = Math.max(1, Math.min(50, Number(url.searchParams.get("pageSize") || "10")));
+  const pageSize = Math.max(1, Math.min(50, Number(url.searchParams.get("pageSize") || "20")));
 
-  const meta = getModel(JOB_CANDIDATES);
-  if (!meta) {
-    return NextResponse.json({ items: [], total: 0, page, pageSize } as ListOut, { status: 200 });
-  }
+  const meta = getModel();
+  if (!meta) return NextResponse.json({ items: [], total: 0, page, pageSize } as ListOut, { status: 200 });
 
+  const fields = new Set(meta.fields.map((f) => f.name));
   const d = getDelegate(meta.name) as {
     findMany?: (args: unknown) => Promise<unknown[]>;
     count?: (args: unknown) => Promise<number>;
+    create?: (args: unknown) => Promise<unknown>;
   };
 
-  const fields = new Set(meta.fields.map((f) => f.name));
-  const hasDescription = fields.has("description");
-
   const where: Record<string, unknown> = {};
-  if (q && fields.has("title")) where["title"] = { contains: q, mode: "insensitive" };
-  if (location && fields.has("location")) where["location"] = { contains: location, mode: "insensitive" };
-  if (type && fields.has("isRequest")) where["isRequest"] = type === "requests";
   if (team) {
     if (fields.has("teamSlug")) where["teamSlug"] = team;
     else if (fields.has("teamId")) where["teamId"] = team;
   }
+  if (location && fields.has("location")) {
+    where["location"] = { contains: location, mode: "insensitive" };
+  }
+  if (type === "jobs") where["isRequest"] = false;
+  if (type === "requests") where["isRequest"] = true;
+  if (q) {
+    const ors: Record<string, unknown>[] = [];
+    if (fields.has("title")) ors.push({ title: { contains: q, mode: "insensitive" } });
+    if (fields.has("company")) ors.push({ company: { contains: q, mode: "insensitive" } });
+    if (fields.has("location")) ors.push({ location: { contains: q, mode: "insensitive" } });
+    if (ors.length) where["OR"] = ors;
+  }
 
   const RICH: Record<string, true> = {};
-  ["id", "title", "company", "location", "isRequest", "postedAt", "posterId"].forEach((k) => {
+  ["id", "title", "company", "location", "isRequest", "postedAt", "posterId", "teamSlug"].forEach((k) => {
     if (fields.has(k)) (RICH as Record<string, true>)[k] = true;
   });
-  if (hasDescription) (RICH as Record<string, true>)["description"] = true;
-
   const MIN: Record<string, true> = {};
   if (fields.has("id")) (MIN as Record<string, true>)["id"] = true;
 
@@ -134,9 +121,7 @@ export async function GET(req: Request): Promise<Response> {
         });
       }
       try {
-        total = has(d, "count")
-          ? await (d.count as (a: unknown) => Promise<number>)({ where })
-          : rows.length;
+        total = has(d, "count") ? await (d.count as (a: unknown) => Promise<number>)({ where }) : rows.length;
       } catch {
         total = rows.length;
       }
@@ -146,30 +131,37 @@ export async function GET(req: Request): Promise<Response> {
     total = 0;
   }
 
-  const items = (rows as Record<string, unknown>[]).map((r) => normalizeJob(r, hasDescription));
+  const items: JobItem[] = (rows as Record<string, unknown>[]).map((r) => ({
+    id: normId(r.id),
+    title: typeof r.title === "string" ? r.title : null,
+    company: typeof r.company === "string" ? r.company : null,
+    location: typeof r.location === "string" ? r.location : null,
+    isRequest: !!r.isRequest,
+    postedAt: iso(r.postedAt ?? r.createdAt ?? new Date().toISOString()),
+    ...(fields.has("posterId") ? { posterId: typeof r.posterId === "string" || typeof r.posterId === "number" ? String(r.posterId) : null } : {}),
+    ...(fields.has("teamSlug") ? { teamSlug: typeof r.teamSlug === "string" ? r.teamSlug : null } : {}),
+  }));
+
   return NextResponse.json({ items, total, page, pageSize } as ListOut, { status: 200 });
 }
 
-export async function POST(req: Request): Promise<Response> {
+export async function POST(req: Request, _ctx: unknown): Promise<Response> {
+  let authed = false;
   try {
-    const session = await getSessionLoose();
-    const role = readRole(session);
-    if (!session || !session.user) {
-      return NextResponse.json({ ok: false, reason: "unauthorized" }, { status: 200 });
-    }
-    void role;
+    const s = await getSessionLoose();
+    authed = !!(s && s.user);
   } catch {
-    return NextResponse.json({ ok: false, reason: "unauthorized" }, { status: 200 });
+    authed = false;
   }
+  if (!authed) return NextResponse.json({ ok: false, reason: "unauthorized" } as CreateOut, { status: 200 });
 
-  const meta = getModel(JOB_CANDIDATES);
-  if (!meta) {
-    return NextResponse.json({ ok: false, reason: "no-model" }, { status: 200 });
-  }
-  const d = getDelegate(meta.name) as {
-    create?: (args: unknown) => Promise<unknown>;
-  };
+  const url = new URL(req.url);
+  void url;
+
+  const meta = getModel();
+  if (!meta) return NextResponse.json({ ok: false, reason: "no-model" } as CreateOut, { status: 200 });
   const fields = new Set(meta.fields.map((f) => f.name));
+  const d = getDelegate(meta.name) as { create?: (args: unknown) => Promise<unknown> };
 
   let body: Record<string, unknown> = {};
   try {
@@ -179,48 +171,69 @@ export async function POST(req: Request): Promise<Response> {
     body = {};
   }
 
-  const richData: Record<string, unknown> = {};
-  if (fields.has("title") && typeof body.title === "string") richData.title = body.title;
-  if (fields.has("company") && (typeof body.company === "string" || body.company === null)) richData.company = body.company ?? null;
-  if (fields.has("location") && typeof body.location === "string") richData.location = body.location;
-  if (fields.has("isRequest")) richData.isRequest = !!body.isRequest;
-  if (fields.has("postedAt")) richData.postedAt = body.postedAt ? new Date(String(body.postedAt)) : new Date();
-  if (fields.has("posterId") && (typeof body.posterId === "string" || typeof body.posterId === "number")) richData.posterId = body.posterId;
-  if (fields.has("description") && (typeof body.description === "string" || body.description === null)) richData.description = body.description ?? null;
-  if (fields.has("teamSlug") && typeof body.teamSlug === "string") richData.teamSlug = body.teamSlug;
-  if (fields.has("teamId") && (typeof body.teamId === "string" || typeof body.teamId === "number")) richData.teamId = body.teamId;
+  const data: Record<string, unknown> = {};
+  if (fields.has("title") && typeof body.title === "string") data.title = body.title;
+  if (fields.has("company") && (typeof body.company === "string" || body.company === null)) data.company = body.company;
+  if (fields.has("location") && typeof body.location === "string") data.location = body.location;
+  if (fields.has("isRequest")) data.isRequest = !!body.isRequest;
+  if (fields.has("description") && typeof body.description === "string") data.description = body.description;
+  if (fields.has("postedAt")) data.postedAt = new Date();
+  if (fields.has("posterId") && (typeof body.posterId === "string" || typeof body.posterId === "number"))
+    data.posterId = body.posterId;
+  if (fields.has("teamSlug") && typeof body.teamSlug === "string") data.teamSlug = body.teamSlug;
 
-  const MIN: Record<string, true> = {};
-  if (fields.has("id")) (MIN as Record<string, true>)["id"] = true;
+  const select: Record<string, true> = {};
+  ["id", "title", "company", "location", "isRequest", "postedAt", "posterId", "teamSlug"].forEach((k) => {
+    if (fields.has(k)) (select as Record<string, true>)[k] = true;
+  });
+  const minimal: Record<string, true> = {};
+  if (fields.has("id")) (minimal as Record<string, true>)["id"] = true;
 
   try {
     if (has(d, "create")) {
       try {
         const created = await (d.create as (a: unknown) => Promise<unknown>)({
-          data: richData,
-          select: Object.keys(richData).length
-            ? Object.fromEntries(
-                ["id", "title", "company", "location", "isRequest", "postedAt", "posterId", "description"]
-                  .filter((k) => fields.has(k))
-                  .map((k) => [k, true] as const)
-              )
-            : (MIN as Record<string, true>),
+          data,
+          select: Object.keys(select).length ? select : minimal,
         });
-        const item = normalizeJob(created as Record<string, unknown>, fields.has("description"));
-        return NextResponse.json({ ok: true, item }, { status: 200 });
+        const r = created as Record<string, unknown>;
+        const item: JobItem = {
+          id: normId(r.id),
+          title: typeof r.title === "string" ? r.title : null,
+          company: typeof r.company === "string" ? r.company : null,
+          location: typeof r.location === "string" ? r.location : null,
+          isRequest: !!r.isRequest,
+          postedAt: iso(r.postedAt ?? r.createdAt ?? new Date().toISOString()),
+          ...(fields.has("posterId")
+            ? { posterId: typeof r.posterId === "string" || typeof r.posterId === "number" ? String(r.posterId) : null }
+            : {}),
+          ...(fields.has("teamSlug") ? { teamSlug: typeof r.teamSlug === "string" ? r.teamSlug : null } : {}),
+        };
+        return NextResponse.json({ ok: true, item } as CreateOut, { status: 200 });
       } catch {
         try {
           const created = await (d.create as (a: unknown) => Promise<unknown>)({
             data: {},
-            select: Object.fromEntries(["id"].filter((k) => fields.has(k)).map((k) => [k, true] as const)),
+            select: minimal,
           });
-          const item = normalizeJob(created as Record<string, unknown>, fields.has("description"));
-          return NextResponse.json({ ok: true, item }, { status: 200 });
+          const r = created as Record<string, unknown>;
+          const item: JobItem = {
+            id: normId(r.id),
+            title: typeof body.title === "string" ? body.title : null,
+            company: typeof body.company === "string" ? body.company : null,
+            location: typeof body.location === "string" ? body.location : null,
+            isRequest: !!body.isRequest,
+            postedAt: new Date().toISOString(),
+          };
+          return NextResponse.json({ ok: true, item } as CreateOut, { status: 200 });
         } catch {
-          return NextResponse.json({ ok: false, reason: "create-failed" }, { status: 200 });
+          return NextResponse.json({ ok: false, reason: "create-failed" } as CreateOut, { status: 200 });
         }
       }
     }
-  } catch {}
-  return NextResponse.json({ ok: false, reason: "no-delegate" }, { status: 200 });
+  } catch {
+    return NextResponse.json({ ok: false, reason: "no-delegate" } as CreateOut, { status: 200 });
+  }
+
+  return NextResponse.json({ ok: false, reason: "no-delegate" } as CreateOut, { status: 200 });
 }
