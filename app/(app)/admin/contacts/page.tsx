@@ -16,7 +16,6 @@ type Data = { items?: Row[]; total?: number; page?: number; pageSize?: number; r
 export default async function AdminContactsPage({ searchParams }: { searchParams?: Promise<Record<string, string>> }) {
   const sp = (await searchParams) || {};
   const page = Number(sp.page || "1");
-  const pageSize = Number(sp.pageSize || "20");
   const qs = new URLSearchParams(
     Object.fromEntries(Object.entries(sp).map(([k, v]) => [k, String(v)]))
   );

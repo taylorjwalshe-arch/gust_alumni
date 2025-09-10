@@ -1,11 +1,14 @@
+import { Suspense } from "react";
 import MentorSuggestCard from "@/components/mentors/MentorSuggestCard";
-import MentorsView from "@/components/mentors/MentorsView";
+import MatchHistory from "@/components/mentors/MatchHistory";
 
-export default function Page() {
+export default async function MentorsPage() {
   return (
-    <div className="mx-auto max-w-5xl p-6 space-y-6">
+    <div className="p-6 space-y-6">
       <MentorSuggestCard />
-      <MentorsView />
+      <Suspense fallback={null}>
+        <MatchHistory />
+      </Suspense>
     </div>
   );
 }
