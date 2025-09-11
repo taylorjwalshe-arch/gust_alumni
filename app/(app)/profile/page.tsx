@@ -1,13 +1,16 @@
-import ProfileForm from "@/components/profile/ProfileForm";
+import { Suspense } from "react";
+import ProfileClient from "@/components/profile/ProfileClient";
 
-export default function Page() {
+export default function ProfilePage() {
   return (
-    <div className="mx-auto max-w-2xl p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Create or Claim Your Profile</h1>
-      <p className="text-sm text-gray-600">
-        Paste your existing Person ID to claim, or fill in details to create a new profile.
-      </p>
-      <ProfileForm />
-    </div>
+    <Suspense
+      fallback={
+        <div className="p-6 text-sm text-gray-600" role="status" aria-label="Loading profile">
+          Loading…
+        </div>
+      }
+    >
+      <ProfileClient />
+    </Suspense>
   );
 }
