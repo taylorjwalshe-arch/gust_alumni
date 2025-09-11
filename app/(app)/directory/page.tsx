@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import ImportClient from "@/components/admin/ImportClient";
+import DirectoryIndexClient from "@/components/directory/DirectoryIndexClient";
 
 export default function Page() {
   return (
     <Suspense fallback={null}>
-      <ImportClient />
+      <DirectoryIndexClient />
     </Suspense>
   );
 }
