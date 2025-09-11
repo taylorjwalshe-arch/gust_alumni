@@ -1,10 +1,13 @@
-import JobNewForm from "@/components/jobs/JobNewForm";
+import { Suspense } from "react";
+import JobsNewClient from "@/components/jobs/JobsNewClient";
 
-export default function Page() {
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export default function JobsNewPage() {
   return (
-    <div className="mx-auto max-w-2xl p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Post a Job or Request</h1>
-      <JobNewForm />
-    </div>
+    <Suspense fallback={<div role="status" className="p-4 text-sm text-gray-600">Loading…</div>}>
+      <JobsNewClient />
+    </Suspense>
   );
 }

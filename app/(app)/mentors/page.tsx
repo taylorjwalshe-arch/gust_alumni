@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import { Suspense } from "react";
 import MentorSuggestCard from "@/components/mentors/MentorSuggestCard";
 import MatchHistory from "@/components/mentors/MatchHistory";

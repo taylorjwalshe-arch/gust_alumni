@@ -1,12 +1,20 @@
+import "../globals.css";
 import type { ReactNode } from "react";
+import Header from "@/components/layout/Header";
 import NotificationsProvider from "@/components/notify/NotificationsProvider";
-import NotifyBell from "@/components/notify/NotifyBell";
 
-export default function AppGroupLayout({ children }: { children: ReactNode }) {
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <NotificationsProvider>
-      {children}
-      <NotifyBell />
-    </NotificationsProvider>
+    <html lang="en">
+      <body>
+        <NotificationsProvider>
+          <Header />
+          <main>{children}</main>
+        </NotificationsProvider>
+      </body>
+    </html>
   );
 }
