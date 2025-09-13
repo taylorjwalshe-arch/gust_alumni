@@ -1,157 +1,151 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+export const runtime = "nodejs";
+import type { NextRequest } from "next/server";
 
-type Candidate = {
+type Person = {
   id: string;
   firstName: string | null;
   lastName: string | null;
-  industries: string[] | null;
+  email: string | null;
   location: string | null;
-  updatedAt?: string | null;
-  createdAt?: string | null;
+  industries: string[] | null;
+  teamSlug?: string | null;
 };
 
-type SuggestResponse = {
-  item: Candidate | null;
-  weekStartISO: string;
+type Out = {
+  ok: boolean;
+  suggestion: (Person & { why?: string | null }) | null;
+  reason?: string | null;
 };
 
-const MENTOR_CANDS = ["mentor", "mentors", "candidate", "candidates"] as const;
-const PERSON_CANDS = ["person", "people", "alumni", "user", "member"] as const;
-
-type ReadDelegate = {
-  findMany: (args?: unknown) => Promise<unknown[]>;
-  count: (args?: unknown) => Promise<number>;
+const RICH: Record<string, true> = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+  location: true,
+  industries: true,
+  teamSlug: true,
 };
 
-function hasRead(d: unknown): d is ReadDelegate {
-  if (!d || typeof d !== "object") return false;
-  const o = d as { findMany?: unknown; count?: unknown };
-  return typeof o.findMany === "function" && typeof o.count === "function";
+const MINIMAL: Record<string, true> = { id: true };
+
+function normPerson(p: Record<string, unknown>): Person {
+  const industries = Array.isArray(p.industries)
+    ? (p.industries as unknown[]).filter((x): x is string => typeof x === "string")
+    : null;
+  const id =
+    typeof p.id === "string"
+      ? p.id
+      : typeof p.id === "number"
+      ? String(p.id)
+      : crypto.randomUUID();
+  const ts: unknown = (p as Record<string, unknown>)["teamSlug"];
+  return {
+    id,
+    firstName: typeof p.firstName === "string" ? p.firstName : null,
+    lastName: typeof p.lastName === "string" ? p.lastName : null,
+    email: typeof p.email === "string" ? p.email : null,
+    location: typeof p.location === "string" ? p.location : null,
+    industries,
+    teamSlug: typeof ts === "string" ? ts : null,
+  };
 }
 
-function getFirst(names: readonly string[]) {
-  const bag = prisma as unknown as Record<string, unknown>;
-  for (const n of names) {
-    const d = bag[n];
-    if (hasRead(d)) return d as ReadDelegate;
-  }
+function ciIncludes(arr: string[] | null, needle: string): boolean {
+  if (!arr || !needle) return false;
+  const n = needle.toLowerCase();
+  return arr.some((s) => s.toLowerCase().includes(n));
+}
+
+function isDelegate(x: unknown): x is { findMany: (args?: unknown) => Promise<unknown[]> } {
+  return typeof x === "object" && x !== null && typeof (x as Record<string, unknown>).findMany === "function";
+}
+
+async function getDelegate() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prismaAny = new PrismaClient() as unknown as Record<string, unknown>;
+    const candidates = ["mentor", "mentors", "candidate", "candidates", "person", "people", "alumni", "user", "member"];
+    for (const name of candidates) {
+      const key = (name[0]?.toLowerCase() || "") + name.slice(1);
+      const d = prismaAny[key];
+      if (isDelegate(d)) return d;
+    }
+  } catch {}
   return null;
 }
 
-function isoFrom(v: unknown): string | null {
-  if (v instanceof Date) return v.toISOString();
-  if (typeof v === "string") {
-    const d = new Date(v);
-    return isNaN(d.getTime()) ? null : d.toISOString();
-  }
-  return null;
+function computeIndex(length: number, salt: string): number {
+  if (length <= 0) return 0;
+  let acc = 0;
+  for (let i = 0; i < salt.length; i++) acc = (acc * 31 + salt.charCodeAt(i)) >>> 0;
+  return acc % length;
 }
 
-function normRows(rows: unknown[]): Candidate[] {
-  const arr = Array.isArray(rows) ? rows : [];
-  return arr.map((raw) => {
-    const r = (raw ?? {}) as Record<string, unknown>;
-    const id = r.id != null ? String(r.id) : crypto.randomUUID();
-    const firstName = typeof r.firstName === "string" ? r.firstName : null;
-    const lastName = typeof r.lastName === "string" ? r.lastName : null;
-    const industries = Array.isArray(r.industries)
-      ? (r.industries as unknown[]).filter((x): x is string => typeof x === "string")
-      : null;
-    const location = typeof r.location === "string" ? r.location : null;
-    const updatedAt = isoFrom(r.updatedAt);
-    const createdAt = isoFrom(r.createdAt);
-    return { id, firstName, lastName, industries, location, updatedAt, createdAt };
-  });
-}
-
-function weekStartISO(now = new Date()): string {
-  const d = new Date(now);
-  const day = d.getUTCDay(); // 0-6, Sun=0
-  const diff = (day + 6) % 7; // days since Monday
-  d.setUTCDate(d.getUTCDate() - diff);
-  d.setUTCHours(0, 0, 0, 0);
-  return d.toISOString();
-}
-
-function stableIndex(seed: string, n: number): number {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) {
-    h = (h * 31 + seed.charCodeAt(i)) | 0;
-  }
-  if (h < 0) h = -h;
-  return n > 0 ? h % n : 0;
-}
-
-export async function GET(): Promise<Response> {
-  const weekISO = weekStartISO();
+export async function GET(req: NextRequest): Promise<Response> {
+  const url = new URL(req.url);
+  const team = url.searchParams.get("team") || "";
+  const industry = url.searchParams.get("industry") || "";
+  const weekSalt = new Date().toISOString().slice(0, 10);
 
   try {
-    const mentor = getFirst(MENTOR_CANDS) ?? getFirst(PERSON_CANDS);
-    if (!mentor) {
-      const body: SuggestResponse = { item: null, weekStartISO: weekISO };
-      return NextResponse.json(body, { status: 200 });
+    const delegate = await getDelegate();
+    if (!delegate) {
+      const empty: Out = { ok: true, suggestion: null, reason: "No mentor/person model found" };
+      return Response.json(empty, { status: 200 });
     }
 
-    let items: unknown[] = [];
+    const where: Record<string, unknown> = {};
+    if (team) where["teamSlug"] = team;
+
+    let rows: unknown[] = [];
     try {
-      items = await mentor.findMany({
+      rows = await delegate.findMany({
+        where,
         take: 200,
-        orderBy: { updatedAt: "desc" } as unknown,
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          industries: true,
-          location: true,
-          updatedAt: true,
-          createdAt: true,
-        },
+        select: RICH,
+        orderBy: { id: "asc" },
       });
     } catch {
       try {
-        items = await mentor.findMany({
+        rows = await delegate.findMany({
+          where,
           take: 200,
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            industries: true,
-            location: true,
-            updatedAt: true,
-            createdAt: true,
-          },
+          select: RICH,
         });
       } catch {
         try {
-          items = await mentor.findMany({ take: 200, select: { id: true } });
+          rows = await delegate.findMany({
+            take: 200,
+            select: MINIMAL,
+          });
         } catch {
-          items = [];
+          rows = [];
         }
       }
     }
 
-    const normalized = normRows(items).filter((x) => x.id);
-    if (normalized.length === 0) {
-      const body: SuggestResponse = { item: null, weekStartISO: weekISO };
-      return NextResponse.json(body, { status: 200 });
+    const people = rows.map((r) => normPerson((r ?? {}) as Record<string, unknown>));
+    const pool = industry ? people.filter((p) => ciIncludes(p.industries, industry)) : people;
+
+    if (pool.length === 0) {
+      const out: Out = { ok: true, suggestion: null, reason: "No candidates matched filters" };
+      return Response.json(out, { status: 200 });
     }
 
-    normalized.sort((a, b) => {
-      const ad = isoFrom(a.updatedAt) ?? isoFrom(a.createdAt) ?? null;
-      const bd = isoFrom(b.updatedAt) ?? isoFrom(b.createdAt) ?? null;
-      const at = ad ? new Date(ad).getTime() : 0;
-      const bt = bd ? new Date(bd).getTime() : 0;
-      return bt - at;
-    });
+    const idx = computeIndex(pool.length, `${team}|${industry}|${weekSalt}`);
+    const pick = pool[idx];
 
-    const idx = stableIndex(weekISO, normalized.length);
-    const pick = normalized[idx];
+    const why: string[] = [];
+    if (team) why.push(`Same team: ${team}`);
+    if (industry) why.push(`Industry match: ${industry}`);
+    if (why.length === 0) why.push("Rotating weekly suggestion");
+    const suggestion = { ...pick, why: why.join(" · ") };
 
-    const body: SuggestResponse = { item: pick, weekStartISO: weekISO };
-    return NextResponse.json(body, { status: 200 });
+    const out: Out = { ok: true, suggestion };
+    return Response.json(out, { status: 200 });
   } catch {
-    const body: SuggestResponse = { item: null, weekStartISO: weekISO };
-    return NextResponse.json(body, { status: 200 });
+    const out: Out = { ok: false, suggestion: null, reason: "Unhandled error; returning safe shape" };
+    return Response.json(out, { status: 200 });
   }
 }
