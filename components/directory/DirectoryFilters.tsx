@@ -34,6 +34,18 @@ export default function DirectoryFilters() {
           <option key={i} value={i}>{i}</option>
         ))}
       </select>
+{(selectedIndustry || selectedLocation) && (
+  <button
+    onClick={() => {
+      updateParam("industry", "");
+      updateParam("location", "");
+    }}
+    className="text-sm text-blue-600 underline"
+  >
+    Clear Filters
+  </button>
+)}
+
       <select
         value={selectedLocation}
         onChange={(e) => updateParam("location", e.target.value)}
@@ -44,6 +56,18 @@ export default function DirectoryFilters() {
           <option key={l} value={l}>{l}</option>
         ))}
       </select>
+{(selectedIndustry || selectedLocation) && (
+  <button
+    onClick={() => {
+      updateParam("industry", "");
+      updateParam("location", "");
+    }}
+    className="text-sm text-blue-600 underline"
+  >
+    Clear Filters
+  </button>
+)}
+
     </div>
   );
 }
