@@ -134,6 +134,8 @@ const res = await fetch(`/api/directory?${usp.toString()}`, { cache: "no-store" 
         </div>
       </div>
 
+     <DirectoryFilters />
+
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <button
