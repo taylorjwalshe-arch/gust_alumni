@@ -1,3 +1,5 @@
+import DirectoryFilters from "./DirectoryFilters";
+
 "use client";
 import React from "react";
 import DirectoryCard from "./DirectoryCard";
@@ -49,7 +51,15 @@ export default function DirectoryView() {
       const params = new URLSearchParams();
       params.set("pageSize", "200");
       if (query.trim()) params.set("q", query.trim());
-      const res = await fetch(`/api/directory?${params.toString()}`, { cache: "no-store" });
+      const usp = new URLSearchParams();
+if (q) usp.set("q", q);
+if (typeof window !== "undefined") {
+  const current = new URLSearchParams(window.location.search);
+  if (current.get("industry")) usp.set("industry", current.get("industry")!);
+  if (current.get("location")) usp.set("location", current.get("location")!);
+}
+const res = await fetch(`/api/directory?${usp.toString()}`, { cache: "no-store" });
+
       const json: DirectoryResponse = await res.json();
       setData(json);
     } catch {
