@@ -1,7 +1,7 @@
 "use client";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 
-export default function DirectoryFilters() {
+export function DirectoryFilters() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -22,52 +22,47 @@ export default function DirectoryFilters() {
     router.push(`${pathname}?${newParams.toString()}`);
   }
 
+  function clearFilters() {
+    const newParams = new URLSearchParams(Array.from(params.entries()));
+    newParams.delete("industry");
+    newParams.delete("location");
+    router.push(`${pathname}?${newParams.toString()}`);
+  }
+
   return (
-    <div className="flex gap-4 flex-wrap">
-      <select
-        value={selectedIndustry}
-        onChange={(e) => updateParam("industry", e.target.value)}
-        className="rounded border px-2 py-1 text-sm"
+    <div className="flex gap-4 flex-wrap items-end">
+      <div className="flex flex-col">
+        <label className="text-sm text-gray-600">Industry</label>
+        <select
+          value={selectedIndustry}
+          onChange={(e) => updateParam("industry", e.target.value)}
+          className="rounded border px-2 py-1 text-sm"
+        >
+          <option value="">All Industries</option>
+          {industries.map((i) => (
+            <option key={i} value={i}>{i}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-col">
+        <label className="text-sm text-gray-600">Location</label>
+        <select
+          value={selectedLocation}
+          onChange={(e) => updateParam("location", e.target.value)}
+          className="rounded border px-2 py-1 text-sm"
+        >
+          <option value="">All Locations</option>
+          {locations.map((l) => (
+            <option key={l} value={l}>{l}</option>
+          ))}
+        </select>
+      </div>
+      <button
+        onClick={clearFilters}
+        className="text-sm underline text-blue-600 hover:text-blue-800"
       >
-        <option value="">All Industries</option>
-        {industries.map((i) => (
-          <option key={i} value={i}>{i}</option>
-        ))}
-      </select>
-{(selectedIndustry || selectedLocation) && (
-  <button
-    onClick={() => {
-      updateParam("industry", "");
-      updateParam("location", "");
-    }}
-    className="text-sm text-blue-600 underline"
-  >
-    Clear Filters
-  </button>
-)}
-
-      <select
-        value={selectedLocation}
-        onChange={(e) => updateParam("location", e.target.value)}
-        className="rounded border px-2 py-1 text-sm"
-      >
-        <option value="">All Locations</option>
-        {locations.map((l) => (
-          <option key={l} value={l}>{l}</option>
-        ))}
-      </select>
-{(selectedIndustry || selectedLocation) && (
-  <button
-    onClick={() => {
-      updateParam("industry", "");
-      updateParam("location", "");
-    }}
-    className="text-sm text-blue-600 underline"
-  >
-    Clear Filters
-  </button>
-)}
-
+        Clear
+      </button>
     </div>
   );
 }
