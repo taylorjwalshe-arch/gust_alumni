@@ -134,7 +134,11 @@ const res = await fetch(`/api/directory?${usp.toString()}`, { cache: "no-store" 
         </div>
       </div>
 
-     <DirectoryFilters />
+     <div className="flex flex-col gap-1">
+  <label className="text-sm font-semibold text-gray-600">Filters</label>
+  <DirectoryFilters />
+</div>
+
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
