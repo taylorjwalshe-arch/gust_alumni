@@ -1,8 +1,17 @@
+import JobCard from "@/components/jobs/JobCard";
+
 export default function JobsPage() {
+  const jobs = [
+    { id: 1, title: "VC Internship at Sequoia" },
+    { id: 2, title: "Operations Associate at Anduril" },
+  ];
+
   return (
-    <section className="space-y-4">
-      <h1 className="text-2xl font-semibold">Jobs</h1>
-      <p className="text-gray-600">Jobs page is online.</p>
-    </section>
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold">Jobs</h1>
+      {jobs.map((job) => (
+        <JobCard key={job.id} title={job.title} />
+      ))}
+    </div>
   );
 }

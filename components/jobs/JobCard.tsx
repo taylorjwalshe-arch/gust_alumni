@@ -1,36 +1,12 @@
 "use client";
 import React from "react";
-import Link from "next/link";
+import OfferHelpButton from "./OfferHelpButton";
 
-type JobCardProps = {
-  id: string;
-  title: string | null;
-  company: string | null;
-  location: string | null;
-  isRequest: boolean | null;
-  postedAt: string | null;
-};
-
-export default function JobCard(props: JobCardProps) {
-  const { title, company, location, isRequest, postedAt } = props;
-  const isReq = isRequest === true;
-  const dateLabel = postedAt ? new Date(postedAt).toLocaleDateString() : null;
-
+export default function JobCard({ title }: { title: string }) {
   return (
-    <Link href={`/jobs/${props.id}`} className="block rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition">
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold">{title ?? "Untitled"}</h3>
-          <p className="text-sm text-gray-700">{isReq ? "Anonymous request" : (company ?? "Unknown company")}</p>
-        </div>
-        {isReq ? (
-          <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-            Request
-          </span>
-        ) : null}
-      </div>
-      {!isReq && location ? <p className="mt-2 text-sm text-gray-500">{location}</p> : null}
-      {dateLabel ? <p className="mt-1 text-xs text-gray-400">Posted {dateLabel}</p> : null}
-    </Link>
+    <div className="border rounded p-4 shadow-sm space-y-2">
+      <h3 className="font-semibold text-lg">{title}</h3>
+      <OfferHelpButton />
+    </div>
   );
 }

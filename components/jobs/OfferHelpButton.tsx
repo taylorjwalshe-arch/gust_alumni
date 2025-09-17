@@ -1,48 +1,19 @@
 "use client";
-
-import { useState } from "react";
 import { useNotifications } from "@/components/notify/NotificationsProvider";
 
-export default function OfferHelpButton({ jobId }: { jobId: string }) {
+export default function OfferHelpButton({ label = "Offer Help" }: { label?: string }) {
   const { notify } = useNotifications();
-  const [sent, setSent] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  async function send() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/jobs/${jobId}/contact`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: "I can help with this request." }),
-      });
-      const json = await res.json();
-      if (json.ok) {
-        setSent(true);
-        notify("Thanks for offering help — the requester will be notified.");
-      } else {
-        setError(json.reason || "Failed to send");
-      }
-    } catch {
-      setError("Network error");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (sent) return <p className="text-green-600" role="status">Thanks! The requester will be notified.</p>;
-  if (error) return <p className="text-red-600" role="alert">Error: {error}</p>;
+  const handleClick = () => {
+    notify("Thanks for offering to help!");
+  };
 
   return (
     <button
-      onClick={send}
-      disabled={loading}
-      aria-label="Offer help to this job request"
-      className="rounded-xl bg-blue-600 text-white px-4 py-2 hover:bg-blue-700 disabled:opacity-50"
+      onClick={handleClick}
+      className="text-sm px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
     >
-      {loading ? "Sending..." : "Offer help"}
+      {label}
     </button>
   );
 }
