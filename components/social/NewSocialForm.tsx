@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useNotify } from "@/components/notify/NotificationsProvider";
+import { useNotifications } from "@/components/notify/NotificationsProvider";
 
 type Session =
   | {
@@ -12,7 +12,7 @@ type Session =
   | null;
 
 export default function NewSocialForm() {
-  const { notify } = useNotify();
+  const { notify } = useNotifications();
   const [role, setRole] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
   const [title, setTitle] = useState("");

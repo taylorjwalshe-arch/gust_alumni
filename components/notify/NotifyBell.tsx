@@ -1,44 +1,37 @@
 "use client";
-
-import { useNotify } from "./NotificationsProvider";
 import { useState } from "react";
+import { useNotifications } from "./NotificationsProvider";
 
 export default function NotifyBell() {
-  const { count, items, clear } = useNotify();
+  const { list } = useNotifications();
   const [open, setOpen] = useState(false);
-
   return (
-    <div className="fixed bottom-4 left-4 z-40">
+    <div className="relative">
       <button
-        onClick={() => setOpen((v) => !v)}
-        className="relative rounded-full bg-white border border-gray-300 shadow px-3 py-2"
+        onClick={() => setOpen(!open)}
+        className="relative p-2"
         aria-label="Notifications"
       >
         🔔
-        {count > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1">
-            {count}
+        {list.length > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full px-1 text-xs">
+            {list.length}
           </span>
         )}
       </button>
       {open && (
-        <div className="mt-2 w-72 max-h-80 overflow-auto rounded-2xl border bg-white shadow">
-          <div className="flex items-center justify-between p-2 border-b">
-            <div className="font-semibold text-sm">Notifications</div>
-            <button onClick={clear} className="text-xs text-blue-600">Clear</button>
-          </div>
-          <ul className="divide-y">
-            {items.length === 0 ? (
-              <li className="p-3 text-sm text-gray-500">No notifications</li>
-            ) : (
-              items.map((n) => (
-                <li key={n.id} className="p-3 text-sm">
-                  <div>{n.text}</div>
-                  <div className="text-xs text-gray-500">{new Date(n.ts).toLocaleString()}</div>
+        <div className="absolute right-0 mt-2 w-64 bg-white border shadow-lg rounded p-2 text-sm z-50">
+          {list.length === 0 ? (
+            <div className="text-gray-500">No notifications</div>
+          ) : (
+            <ul className="space-y-1">
+              {list.map((n) => (
+                <li key={n.id} className="border-b last:border-0 py-1">
+                  {n.message}
                 </li>
-              ))
-            )}
-          </ul>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>
