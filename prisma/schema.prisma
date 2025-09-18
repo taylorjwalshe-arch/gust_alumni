@@ -91,3 +91,11 @@ model Job {
   postedAt  DateTime? @default(now())
   posterId  String?
 }
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  type      String   @default("UPDATE")
+  createdAt DateTime @default(now())
+}
