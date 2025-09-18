@@ -6,7 +6,7 @@ export default function TeamAdminJobsPage() {
       <Card>
         <CardContent>
           <h2 className="text-2xl font-semibold mb-4">Team Jobs</h2>
-          <p>This is a placeholder for team admin to view jobs posted by members. Future tickets will populate this table.</p>
+          <p>This is a placeholder for team admins to manage job listings. Later tickets will add functionality.</p>
         </CardContent>
       </Card>
     </div>
