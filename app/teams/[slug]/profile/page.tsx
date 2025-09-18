@@ -1,4 +1,17 @@
+import { Metadata } from 'next'
 import { Card, CardContent } from '@/components/ui/card'
+
+interface Props {
+  params: {
+    slug: string
+  }
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  return {
+    title: `${params.slug} – Team Profile`,
+  }
+}
 
 export default function TeamProfilePage() {
   return (
