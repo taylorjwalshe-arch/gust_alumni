@@ -8,7 +8,7 @@ export default function DirectoryView() {
   return (
     <div className="space-y-4">
       <DirectoryFilters />
-      <DirectoryCard />
+      <DirectoryCard person={person} />
     </div>
   );
 }

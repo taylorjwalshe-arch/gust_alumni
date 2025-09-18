@@ -1,60 +1,51 @@
+'use client';
+
 import Link from 'next/link';
 
-export type DirectoryCardProps = {
-  id: string;
-  firstName: string | null;
-  lastName: string | null;
-  industries?: string[] | null;
-  location?: string | null;
-};
-
 export default function DirectoryCard({
-  id,
-  firstName,
-  lastName,
-  industries,
-  location,
-}: DirectoryCardProps) {
-  const name = [firstName, lastName].filter(Boolean).join(' ').trim() || 'Unnamed';
-  const tags = Array.isArray(industries) ? industries.slice(0, 3) : [];
+  person,
+}: {
+  person: {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    location?: string;
+    industries?: string[];
+  };
+}) {
+  if (!person) {
+    console.error('❌ DirectoryCard received undefined person prop');
+    return null;
+  }
+
+  const name = `${person.firstName ?? ''} ${person.lastName ?? ''}`.trim();
+  const location = person.location ?? '';
+  const avatarFallback = (person.firstName?.[0] ?? 'U').toUpperCase();
 
   return (
-    <Link
-      href={`/directory/${id}`}
-      style={{
-        display: 'block',
-        textDecoration: 'none',
-        color: 'inherit',
-        border: '1px solid #e5e7eb',
-        borderRadius: 12,
-        padding: 12,
-      }}
-    >
-      <div style={{ fontWeight: 600, marginBottom: tags.length > 0 ? 8 : 4 }}>
-        {name}
-      </div>
-
-      {tags.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: location ? 6 : 0 }}>
-          {tags.map((t, i) => (
-            <span
-              key={`${id}-ind-${i}`}
-              style={{
-                fontSize: 12,
-                padding: '2px 8px',
-                borderRadius: 999,
-                background: '#f3f4f6',
-                color: '#374151',
-                border: '1px solid #e5e7eb',
-              }}
-            >
-              {t}
-            </span>
-          ))}
+    <div style={{ border: '1px solid #e5e7eb', padding: '16px', borderRadius: '8px', marginBottom: '12px' }}>
+      <Link href={`/directory/${person.id}`} prefetch={false}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
+            backgroundColor: '#ccc',
+            color: '#fff',
+            fontWeight: 'bold',
+            fontSize: 18,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
+            {avatarFallback}
+          </div>
+          <div>
+            <div style={{ fontWeight: 'bold', fontSize: 16 }}>{name}</div>
+            {location && <div style={{ fontSize: 13, color: '#6b7280' }}>{location}</div>}
+          </div>
         </div>
-      )}
-
-      {location && <div style={{ fontSize: 13, color: '#6b7280' }}>{location}</div>}
-    </Link>
+      </Link>
+    </div>
   );
 }
