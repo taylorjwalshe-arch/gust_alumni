@@ -1,12 +1,9 @@
-import type { Person } from "@prisma/client";
-import DirectoryCard from "./DirectoryCard";
+"use client";
 
-export default function DirectoryView({ people }: { people: Person[] }) {
+export const DirectoryView = () => {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-      {people.map((p) => (
-        <DirectoryCard key={p.id} person={p} />
-      ))}
+    <div className="p-4">
+      <p>Directory view content goes here.</p>
     </div>
   );
-}
+};

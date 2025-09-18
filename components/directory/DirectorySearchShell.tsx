@@ -1,11 +1,9 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import DirectoryView from "./DirectoryView";
-
-export default function DirectorySearchShell() {
-  const params = useSearchParams();
-  const filter = params.get("filter") ?? "";
-
-  return <DirectoryView filter={filter} />;
-}
+export const DirectorySearchShell = () => {
+  return (
+    <div className="p-4 border rounded">
+      <p>Directory search shell goes here.</p>
+    </div>
+  );
+};
