@@ -1,6 +1,7 @@
 import { ReactNode } from 'react'
 import { Metadata } from 'next'
 import TeamTabs from '@/components/teams/TeamTabs'
+import TeamBanner from '@/components/teams/TeamBanner'
 
 type Props = {
   children: ReactNode
@@ -16,9 +17,12 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 
 export default function TeamLayout({ children, params }: Props) {
   return (
-    <div className="p-4 max-w-4xl mx-auto">
-      <TeamTabs slug={params.slug} />
-      {children}
+    <div className="max-w-4xl mx-auto">
+      <TeamBanner slug={params.slug} />
+      <div className="px-4">
+        <TeamTabs slug={params.slug} />
+        {children}
+      </div>
     </div>
   )
 }
