@@ -1,9 +1,16 @@
-'use client'
+import { TEAM_CONFIGS } from '@/lib/teams'
 
-export default function TeamBanner({ slug }: { slug: string }) {
+export function TeamBanner({ slug }: { slug: string }) {
+  const team = TEAM_CONFIGS[slug]
+  if (!team?.image) return null
+
   return (
-    <div className="h-32 w-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold mb-4 rounded-b-lg shadow">
-      Team {slug}
+    <div className="w-full h-32 overflow-hidden rounded-xl mb-4">
+      <img
+        src={team.image}
+        alt={`${slug} banner`}
+        className="object-cover w-full h-full"
+      />
     </div>
   )
 }
