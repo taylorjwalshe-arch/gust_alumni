@@ -1,32 +1,65 @@
-import { getServerAuthSession } from '@/lib/authLoose'
 import { prisma } from '@/lib/prisma'
-import FeedList from '@/components/feed/FeedList'
-import { Avatar } from '@/components/ui/avatar'
-import Link from 'next/link'
+import { getServerAuthSession } from '@/lib/authLoose'
+import { DeletePostButton } from '@/components/feed/DeletePostButton'
+import FeedPostDate from '@/components/feed/FeedPostDate'
+import { notFound } from 'next/navigation'
 
-export default async function FeedPage() {
+export default async function FeedPage({ searchParams }: { searchParams?: { page?: string } }) {
   const session = await getServerAuthSession()
+  const page = parseInt(searchParams?.page || '1', 10)
+  const pageSize = 10
+  const skip = (page - 1) * pageSize
+
+  if (page < 1 || isNaN(page)) return notFound()
+
   const posts = await prisma.post.findMany({
     include: { author: true },
     orderBy: { postedAt: 'desc' },
+    skip,
+    take: pageSize,
   })
 
-  const user = session?.user
-
   return (
-    <div className="max-w-xl mx-auto space-y-6">
-      {user && (
-        <div className="bg-white dark:bg-zinc-900 border border-border rounded-md p-4 flex items-center gap-3">
-          <Avatar name={user.name || 'User'} className="h-10 w-10" />
-          <Link
-            href="#"
-            className="flex-1 rounded-full border border-border px-4 py-2 text-muted-foreground text-sm hover:bg-accent"
-          >
-            Start a post...
-          </Link>
-        </div>
+    <main className="max-w-2xl mx-auto p-4 space-y-4">
+      {posts.length === 0 ? (
+        <p className="text-center text-muted-foreground mt-8">No posts yet.</p>
+      ) : (
+        <ul className="space-y-4">
+          {posts.map((post) => (
+            <li key={post.id} className="border rounded-lg p-4 shadow-sm bg-white">
+              <div className="text-sm font-semibold">
+                {post.author.firstName} {post.author.lastName}
+              </div>
+              <FeedPostDate date={post.postedAt} />
+              <p className="mt-2 text-gray-800">{post.content}</p>
+              {session?.user?.id === post.authorId && (
+                <div className="mt-2">
+                  <DeletePostButton id={post.id} />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
-      <FeedList posts={posts} />
-    </div>
+
+      <div className="flex justify-between pt-4">
+        <a
+          className={`px-4 py-2 rounded bg-muted text-muted-foreground ${
+            page <= 1 ? 'pointer-events-none opacity-50' : ''
+          }`}
+          href={`/feed?page=${page - 1}`}
+        >
+          Previous
+        </a>
+        <a
+          className={`px-4 py-2 rounded bg-muted text-muted-foreground ${
+            posts.length < pageSize ? 'pointer-events-none opacity-50' : ''
+          }`}
+          href={`/feed?page=${page + 1}`}
+        >
+          Next
+        </a>
+      </div>
+    </main>
   )
 }
