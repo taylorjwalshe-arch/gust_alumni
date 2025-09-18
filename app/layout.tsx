@@ -1,10 +1,10 @@
 import './globals.css'
 import { ToasterProvider } from '@/components/ToasterProvider'
-import { auth } from '@/lib/auth'
+import { getServerAuthSession } from '@/lib/authLoose'
 import { SessionProvider } from 'next-auth/react'
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth()
+  const session = await getServerAuthSession()
 
   return (
     <html lang="en">

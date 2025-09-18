@@ -1,76 +1,35 @@
-'use client'
-
-import { useEffect, useState } from 'react'
-import { Avatar } from '@/components/ui/avatar'
+import { prisma } from '@/lib/prisma'
+import { getServerAuthSession } from '@/lib/authLoose'
+import { DeletePostButton } from '@/components/feed/DeletePostButton'
 import FeedPostDate from './FeedPostDate'
-import FeedSkeleton from './FeedSkeleton'
 
-type Post = {
-  id: string
-  content: string
-  createdAt: string
-  author: {
-    name: string
-    image: string
-  }
-}
+export default async function FeedList() {
+  const session = await getServerAuthSession()
+  const posts = await prisma.post.findMany({
+    include: { author: true },
+    orderBy: { postedAt: 'desc' },
+  })
 
-export default function FeedList() {
-  const [posts, setPosts] = useState<Post[]>([])
-  const [loading, setLoading] = useState(true)
-  const [optimisticPost, setOptimisticPost] = useState<Post | null>(null)
-
-  useEffect(() => {
-    fetch('/api/feed')
-      .then(res => res.json())
-      .then(data => {
-        setPosts(data.posts)
-        setLoading(false)
-      })
-  }, [])
-
-  useEffect(() => {
-    const handler = (event: CustomEvent) => {
-      setOptimisticPost({
-        id: 'temp-id',
-        content: event.detail.content,
-        createdAt: new Date().toISOString(),
-        author: {
-          name: event.detail.name,
-          image: event.detail.image,
-        },
-      })
-    }
-    window.addEventListener('new-post', handler as EventListener)
-    return () => window.removeEventListener('new-post', handler as EventListener)
-  }, [])
-
-  if (loading) return <FeedSkeleton />
-
-  const allPosts = optimisticPost ? [optimisticPost, ...posts] : posts
-
-  if (allPosts.length === 0) {
-    return (
-      <div className="text-center text-sm text-muted-foreground py-12">
-        No posts yet. Be the first to share an update!
-      </div>
-    )
+  if (posts.length === 0) {
+    return <p className="text-center text-muted-foreground mt-8">No posts yet.</p>
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {allPosts.map((post) => (
-        <div key={post.id} className="bg-white dark:bg-zinc-900 border border-border p-4 rounded-lg shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <Avatar name={post.author.name} src={post.author.image} className="h-8 w-8" />
-            <div>
-              <div className="text-sm font-semibold">{post.author.name}</div>
-              <FeedPostDate dateString={post.createdAt} />
-            </div>
+    <ul className="space-y-4">
+      {posts.map((post) => (
+        <li key={post.id} className="border rounded-lg p-4 shadow-sm bg-white">
+          <div className="text-sm font-semibold">
+            {post.author.firstName} {post.author.lastName}
           </div>
-          <div className="text-sm text-muted-foreground whitespace-pre-wrap">{post.content}</div>
-        </div>
+          <FeedPostDate date={post.postedAt} />
+          <p className="mt-2 text-gray-800">{post.content}</p>
+          {session?.user?.id === post.authorId && (
+            <div className="mt-2">
+              <DeletePostButton id={post.id} />
+            </div>
+          )}
+        </li>
       ))}
-    </div>
+    </ul>
   )
 }
