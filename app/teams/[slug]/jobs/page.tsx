@@ -1,18 +1,32 @@
-import { getTeamJobs } from '@/lib/data'
-import { JobCard } from '@/components/jobs/JobCard'
+import { getTeamBySlug, getTeamJobs } from '@/lib/data'
+import { TeamBanner } from '@/components/teams/TeamBanner'
+import JobCard from '@/components/jobs/JobCard'
 
-export default async function TeamJobsPage({ params }: { params: { slug: string } }) {
-  const jobs = await getTeamJobs(params.slug)
-
-  if (jobs.length === 0) {
-    return <p className="text-center text-muted-foreground py-16">No jobs posted for this team.</p>
+interface Props {
+  params: {
+    slug: string
   }
+}
+
+export default async function TeamJobsPage({ params }: Props) {
+  const team = await getTeamBySlug(params.slug)
+  if (!team) return null
+
+  const jobs = await getTeamJobs(team.id)
 
   return (
-    <ul className="space-y-4">
-      {jobs.map((job) => (
-        <JobCard key={job.id} job={job} />
-      ))}
-    </ul>
+    <div>
+      <TeamBanner team={team} />
+      <h1 className="text-2xl font-semibold mb-4">Jobs</h1>
+      {jobs.length === 0 ? (
+        <p className="text-muted-foreground">No jobs found for this team.</p>
+      ) : (
+        <div className="space-y-4">
+          {jobs.map((job) => (
+            <JobCard key={job.id} job={job} />
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
