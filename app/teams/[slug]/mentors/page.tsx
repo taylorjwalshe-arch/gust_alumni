@@ -14,7 +14,7 @@ export default function TeamMentorsPage({ params }: Props) {
 
   if (error) return <div>Error loading mentors</div>
   if (!data) return <div>Loading mentors...</div>
-  if (data.length === 0) return <div className="text-muted-foreground mt-8 text-center">No mentors yet.</div>
+  if (data.length === 0) return <div className="text-muted-foreground mt-8 text-center">No mentors found.</div>
 
   return (
     <ul className="space-y-4 mt-4">
