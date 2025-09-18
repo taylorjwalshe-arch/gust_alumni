@@ -1,23 +1,29 @@
-import { db } from "@/lib/db";
+import { prisma } from "@/lib/db";
 
-export default async function JobsIndexPage() {
-  const jobs = await db.job.findMany({ orderBy: { createdAt: "desc" } });
+export default async function JobsPage() {
+  const jobs = await prisma.job.findMany({
+    orderBy: {
+      postedAt: "desc",
+    },
+  });
 
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-bold mb-4">Jobs</h1>
-      {jobs?.length ? (
-        <ul className="space-y-2">
+    <section>
+      <h1 className="text-2xl font-bold mb-4">All Jobs</h1>
+
+      {jobs.length === 0 ? (
+        <p className="text-gray-500">No jobs found.</p>
+      ) : (
+        <ul className="grid gap-4">
           {jobs.map((job) => (
-            <li key={job.id} className="border p-2 rounded">
+            <li key={job.id} className="border p-4 rounded shadow-sm">
               <h2 className="font-semibold">{job.title}</h2>
-              <p className="text-sm">{job.description}</p>
+              <p className="text-sm text-gray-600">{job.company}</p>
+              <p className="text-sm text-gray-500">{job.location}</p>
             </li>
           ))}
         </ul>
-      ) : (
-        <p>No jobs found.</p>
       )}
-    </div>
+    </section>
   );
 }
