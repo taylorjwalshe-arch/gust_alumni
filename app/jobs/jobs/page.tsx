@@ -1,19 +1,23 @@
-import Link from "next/link";
-import JobsView from "@/components/jobs/JobsView";
+import { db } from "@/lib/db";
 
-export default function Page() {
+export default async function JobsIndexPage() {
+  const jobs = await db.job.findMany({ orderBy: { createdAt: "desc" } });
+
   return (
-    <div className="mx-auto max-w-5xl p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Jobs</h1>
-        <Link
-          href="/jobs/new"
-          className="rounded-2xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-        >
-          Post a job
-        </Link>
-      </div>
-      <JobsView />
+    <div className="p-4">
+      <h1 className="text-xl font-bold mb-4">Jobs</h1>
+      {jobs?.length ? (
+        <ul className="space-y-2">
+          {jobs.map((job) => (
+            <li key={job.id} className="border p-2 rounded">
+              <h2 className="font-semibold">{job.title}</h2>
+              <p className="text-sm">{job.description}</p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No jobs found.</p>
+      )}
     </div>
   );
 }
