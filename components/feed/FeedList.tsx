@@ -1,28 +1,59 @@
 'use client'
 
-import { Post, Person } from '@prisma/client'
+import { useEffect, useState } from 'react'
 import { Avatar } from '@/components/ui/avatar'
 import FeedPostDate from './FeedPostDate'
 
-type PostWithAuthor = Post & { author: Person | null }
+type Post = {
+  id: string
+  content: string
+  createdAt: string
+  author: {
+    name: string
+    image: string
+  }
+}
 
-export default function FeedList({ posts }: { posts: PostWithAuthor[] }) {
-  if (posts.length === 0) return <p className="text-muted-foreground text-sm">No posts yet.</p>
+export default function FeedList() {
+  const [posts, setPosts] = useState<Post[]>([])
+  const [optimisticPost, setOptimisticPost] = useState<Post | null>(null)
+
+  useEffect(() => {
+    fetch('/api/feed')
+      .then(res => res.json())
+      .then(data => setPosts(data.posts))
+  }, [])
+
+  useEffect(() => {
+    const handler = (event: CustomEvent) => {
+      setOptimisticPost({
+        id: 'temp-id',
+        content: event.detail.content,
+        createdAt: new Date().toISOString(),
+        author: {
+          name: event.detail.name,
+          image: event.detail.image,
+        },
+      })
+    }
+    window.addEventListener('new-post', handler as EventListener)
+    return () => window.removeEventListener('new-post', handler as EventListener)
+  }, [])
+
+  const allPosts = optimisticPost ? [optimisticPost, ...posts] : posts
 
   return (
-    <div className="space-y-4">
-      {posts.map((post) => (
-        <div key={post.id} className="bg-white dark:bg-zinc-900 p-4 rounded-md shadow-sm border border-border">
+    <div className="flex flex-col gap-6">
+      {allPosts.map((post) => (
+        <div key={post.id} className="bg-white dark:bg-zinc-900 border border-border p-4 rounded-lg shadow-sm">
           <div className="flex items-center gap-3 mb-2">
-            <Avatar name={post.author?.firstName || 'Unknown'} className="h-8 w-8" />
-            <div className="flex flex-col">
-              <p className="font-medium text-sm">
-                {post.author?.firstName} {post.author?.lastName}
-              </p>
-              <FeedPostDate date={post.postedAt} />
+            <Avatar name={post.author.name} src={post.author.image} className="h-8 w-8" />
+            <div>
+              <div className="text-sm font-semibold">{post.author.name}</div>
+              <FeedPostDate dateString={post.createdAt} />
             </div>
           </div>
-          <p className="text-sm whitespace-pre-line">{post.content}</p>
+          <div className="text-sm text-muted-foreground whitespace-pre-wrap">{post.content}</div>
         </div>
       ))}
     </div>

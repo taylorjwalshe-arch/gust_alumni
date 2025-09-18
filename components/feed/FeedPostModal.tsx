@@ -12,24 +12,24 @@ export default function FeedPostModal() {
   const { data: session } = useSession()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  useEffect(() => {
-    const handler = (event: Event) => {
-      const el = textareaRef.current
-      if (el) {
-        requestAnimationFrame(() => el.focus())
-      }
-    }
-    document.addEventListener('dialog-open', handler)
-    return () => document.removeEventListener('dialog-open', handler)
-  }, [])
-
   const handleSubmit = async () => {
     if (!content.trim()) return
+
+    const event = new CustomEvent('new-post', {
+      detail: {
+        content,
+        name: session?.user?.name || 'User',
+        image: session?.user?.image || '',
+      },
+    })
+    window.dispatchEvent(event)
+
     await fetch('/api/posts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),
     })
+
     window.location.reload()
   }
 
@@ -46,9 +46,7 @@ export default function FeedPostModal() {
           className="fixed z-50 left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white dark:bg-zinc-950 p-4 flex flex-col gap-4 border border-border max-h-[90vh] overflow-hidden"
           onOpenAutoFocus={(e) => {
             e.preventDefault()
-            if (textareaRef.current) {
-              textareaRef.current.focus()
-            }
+            textareaRef.current?.focus()
           }}
         >
           <Dialog.Title className="text-lg font-medium">Create Post</Dialog.Title>
