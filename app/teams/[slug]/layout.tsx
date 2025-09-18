@@ -1,8 +1,7 @@
-'use client'
-
 import Link from 'next/link'
 import { ReactNode } from 'react'
 import { useSelectedLayoutSegment } from 'next/navigation'
+import { Metadata } from 'next'
 
 type Props = {
   children: ReactNode
@@ -10,6 +9,13 @@ type Props = {
 }
 
 const tabs = ['feed', 'directory', 'jobs', 'mentors']
+
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  return {
+    title: `Team ${params.slug} | Gust`,
+    description: `Explore posts, jobs, mentors, and directory for team ${params.slug} on Gust.`,
+  }
+}
 
 export default function TeamLayout({ children, params }: Props) {
   const { slug } = params
