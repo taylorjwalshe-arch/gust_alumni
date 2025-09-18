@@ -5,11 +5,11 @@ export function TeamBanner({ slug }: { slug: string }) {
   if (!team?.image) return null
 
   return (
-    <div className="w-full h-32 overflow-hidden rounded-xl mb-4">
+    <div className="w-full h-36 rounded-xl overflow-hidden border border-gray-300">
       <img
         src={team.image}
         alt={`${slug} banner`}
-        className="object-cover w-full h-full"
+        className="w-full h-full object-cover"
       />
     </div>
   )

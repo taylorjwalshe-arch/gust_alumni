@@ -1,14 +1,11 @@
-export const TEAM_CONFIGS: Record<string, { color: string; image?: string }> = {
-  'womens': {
-    color: 'bg-pink-500',
-    image: '/team-banners/womens.jpg',
-  },
+export const TEAM_CONFIGS: Record<
+  string,
+  { color: string; image?: string; nav?: string }
+> = {
   'sailing': {
-    color: 'bg-blue-500',
-    image: '/team-banners/sailing.jpg',
+    color: 'bg-[#00245C]', // GU dark blue
+    image: '/team-banners/sailing-banner.png',
+    nav: 'text-white bg-[#00245C]',
   },
-  'rugby': {
-    color: 'bg-red-700',
-    image: '/team-banners/rugby.jpg',
-  },
+  // You can add more teams here...
 }
