@@ -1,12 +1,15 @@
-'use client';
+import { getServerAuthSession } from "@/lib/authLoose";
 
-import { useSession } from "next-auth/react";
+export default async function ProfilePage() {
+  const session = await getServerAuthSession();
 
-export default function ProfilePage() {
-  const { data: session, status } = useSession();
-
-  if (status === "loading") return <p>Loading...</p>;
-  if (!session) return <p>You must be signed in to view this page.</p>;
+  if (!session) {
+    return (
+      <div className="p-4 text-red-600">
+        You must be signed in to view this page.
+      </div>
+    );
+  }
 
   return (
     <div className="p-4">
