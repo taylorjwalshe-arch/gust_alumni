@@ -1,8 +1,13 @@
+import { Suspense } from "react";
+import MentorsView from "@/components/mentors/MentorsView";
+
 export default function MentorsPage() {
   return (
-    <div>
-      <h1 className="text-xl font-semibold mb-2">Mentors</h1>
-      <p>This page will show mentor profiles and matches.</p>
-    </div>
+    <main className="p-6">
+      <h1 className="text-2xl font-semibold mb-4">Mentors</h1>
+      <Suspense fallback={<p>Loading mentors...</p>}>
+        <MentorsView />
+      </Suspense>
+    </main>
   );
 }
