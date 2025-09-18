@@ -14,7 +14,7 @@ export default function TeamJobsPage({ params }: Props) {
 
   if (error) return <div>Error loading jobs</div>
   if (!data) return <div>Loading jobs...</div>
-  if (data.length === 0) return <div className="text-muted-foreground mt-8 text-center">No jobs yet.</div>
+  if (data.length === 0) return <div className="text-muted-foreground mt-8 text-center">No jobs found.</div>
 
   return (
     <ul className="space-y-4 mt-4">
