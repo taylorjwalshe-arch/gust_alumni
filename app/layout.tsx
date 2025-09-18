@@ -1,22 +1,19 @@
-import "./globals.css";
-import type { ReactNode } from "react";
-import { Suspense } from "react";
-import AppNav from "@/components/layout/AppNav";
+import './globals.css'
+import { ToasterProvider } from '@/components/ToasterProvider'
+import { auth } from '@/lib/auth'
+import { SessionProvider } from 'next-auth/react'
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth()
+
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-white text-gray-900 antialiased">
-        <header className="border-b">
-          <Suspense fallback={null}>
-            <AppNav />
-          </Suspense>
-        </header>
-        <main className="mx-auto max-w-5xl p-6">{children}</main>
-        <footer className="mx-auto max-w-5xl p-6 text-center text-sm text-gray-500 border-t">
-          © 2025 GUST Alumni MVP
-        </footer>
+    <html lang="en">
+      <body>
+        <SessionProvider session={session}>
+          <ToasterProvider />
+          {children}
+        </SessionProvider>
       </body>
     </html>
-  );
+  )
 }

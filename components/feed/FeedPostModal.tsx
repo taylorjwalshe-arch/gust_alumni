@@ -1,77 +1,70 @@
 'use client'
 
-import * as Dialog from '@radix-ui/react-dialog'
-import { useEffect, useRef, useState } from 'react'
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
-import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/avatar'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { toast } from 'sonner'
 
 export default function FeedPostModal() {
-  const [content, setContent] = useState('')
   const { data: session } = useSession()
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const router = useRouter()
+  const [content, setContent] = useState('')
+  const [open, setOpen] = useState(false)
 
-  const handleSubmit = async () => {
-    if (!content.trim()) return
+  async function submitPost() {
+    if (!content) return
 
-    const event = new CustomEvent('new-post', {
-      detail: {
-        content,
-        name: session?.user?.name || 'User',
-        image: session?.user?.image || '',
-      },
-    })
-    window.dispatchEvent(event)
-
-    await fetch('/api/posts', {
+    const res = await fetch('/api/posts', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),
     })
 
-    window.location.reload()
+    if (res.ok) {
+      toast.success('Post submitted')
+      setContent('')
+      setOpen(false)
+      router.refresh()
+    } else {
+      toast.error('Something went wrong')
+    }
   }
 
+  if (!session?.user) return null
+
   return (
-    <Dialog.Root>
-      <Dialog.Trigger asChild>
-        <button className="fixed bottom-6 right-6 bg-blue-600 text-white rounded-full px-5 py-2 shadow-md hover:bg-blue-700">
-          Post
-        </button>
-      </Dialog.Trigger>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" />
-        <Dialog.Content
-          className="fixed z-50 left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white dark:bg-zinc-950 p-4 flex flex-col gap-4 border border-border max-h-[90vh] overflow-hidden"
-          onOpenAutoFocus={(e) => {
-            e.preventDefault()
-            textareaRef.current?.focus()
-          }}
-        >
-          <Dialog.Title className="text-lg font-medium">Create Post</Dialog.Title>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <div className="bg-white rounded-lg px-4 py-3 border flex items-center gap-3 shadow cursor-pointer">
+          <Avatar src={session.user.image} initials={session.user.name} />
+          <span className="text-sm text-muted-foreground">Start a post...</span>
+        </div>
+      </DialogTrigger>
+      <DialogContent>
+        <div className="flex flex-col gap-4">
           <Textarea
-            ref={textareaRef}
-            placeholder="What's on your mind?"
+            placeholder="Write your update..."
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="min-h-[150px] resize-none flex-1"
           />
-          <div className="flex items-center justify-between mt-auto pt-2 border-t border-border">
-            <div className="pl-1">
-              {session?.user && (
-                <Avatar name={session.user.name || 'User'} className="h-8 w-8" />
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Dialog.Close asChild>
-                <Button variant="outline">Cancel</Button>
-              </Dialog.Close>
-              <Button onClick={handleSubmit}>Post</Button>
-            </div>
+          <div className="flex justify-end gap-2">
+            <button
+              className="text-sm px-4 py-2 rounded border"
+              onClick={() => setOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="text-sm px-4 py-2 rounded bg-black text-white"
+              onClick={submitPost}
+            >
+              Post
+            </button>
           </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
