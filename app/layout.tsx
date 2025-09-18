@@ -1,20 +1,21 @@
+import type { ReactNode } from "react";
+import { Suspense } from "react";
+import AppNav from "@/components/layout/AppNav";
 import "./globals.css";
-import type { Metadata } from "next";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
 
-export const metadata: Metadata = {
-  title: "GUST Alumni",
-  description: "MVP",
-};
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-background text-foreground flex flex-col">
-        <SiteHeader />
-        <div className="flex-1 mx-auto max-w-6xl px-4 py-10">{children}</div>
-        <SiteFooter />
+      <body>
+        <header>
+          <Suspense fallback={null}>
+            <AppNav />
+          </Suspense>
+        </header>
+        <main className="mx-auto max-w-5xl p-6">{children}</main>
+        <footer className="mx-auto max-w-5xl p-6 text-center text-sm text-gray-500 border-t">
+          © 2025 GUST Alumni
+        </footer>
       </body>
     </html>
   );
