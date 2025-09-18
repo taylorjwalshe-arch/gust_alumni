@@ -1,34 +1,29 @@
-"use client";
+'use client'
 
-import { usePathname, useParams } from "next/navigation";
-import Link from "next/link";
+import Link from 'next/link'
+import { useSelectedLayoutSegment } from 'next/navigation'
 
-export default function TeamTabs() {
-  const pathname = usePathname();
-  const params = useParams();
-  const raw = params?.slug;
-  const slug = Array.isArray(raw) ? (raw[0] ?? "") : typeof raw === "string" ? raw : "";
+const tabs = ['feed', 'directory', 'jobs', 'mentors']
 
-  const tabs = [
-    { href: `/teams/${slug}/directory`, label: "Directory" },
-    { href: `/teams/${slug}/jobs`, label: "Jobs" },
-    { href: `/teams/${slug}/feed`, label: "Feed" },
-  ];
+export default function TeamTabs({ slug }: { slug: string }) {
+  const activeSegment = useSelectedLayoutSegment()
 
   return (
-    <div className="flex gap-4 border-b pb-2 mb-4">
-      {tabs.map((t) => {
-        const active = pathname === t.href;
+    <div className="flex space-x-4 border-b border-muted pb-2 mb-6">
+      {tabs.map((tab) => {
+        const isActive = activeSegment === tab
         return (
           <Link
-            key={t.href}
-            href={t.href}
-            className={`px-3 py-1 rounded-t-lg ${active ? "bg-blue-600 text-white" : "text-blue-600 hover:bg-blue-50"}`}
+            key={tab}
+            href={`/teams/${slug}/${tab}`}
+            className={`text-sm font-medium transition-colors ${
+              isActive ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-primary'
+            }`}
           >
-            {t.label}
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </Link>
-        );
+        )
       })}
     </div>
-  );
+  )
 }
