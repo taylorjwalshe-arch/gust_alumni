@@ -1,63 +1,58 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import * as Dialog from '@radix-ui/react-dialog'
+import { useState } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
-import { useRouter } from 'next/navigation'
+import { Avatar } from '@/components/ui/avatar'
+import { useSession } from 'next-auth/react'
 
-interface FeedPostModalProps {
-  open: boolean
-  setOpen: (value: boolean) => void
-}
-
-export function FeedPostModal({ open, setOpen }: FeedPostModalProps) {
+export default function FeedPostModal() {
   const [content, setContent] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [isPending, startTransition] = useTransition()
-  const router = useRouter()
+  const { data: session } = useSession()
 
-  async function handleSubmit() {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/posts', {
-        method: 'POST',
-        body: JSON.stringify({ content }),
-        headers: { 'Content-Type': 'application/json' },
-      })
-      if (!res.ok) throw new Error('Failed to post')
-
-      setContent('')
-      setOpen(false)
-
-      // ✅ Refresh feed
-      startTransition(() => {
-        router.refresh()
-      })
-    } catch (err) {
-      console.error(err)
-      alert('Error posting')
-    } finally {
-      setLoading(false)
-    }
+  const handleSubmit = async () => {
+    if (!content.trim()) return
+    await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    })
+    window.location.reload()
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent>
-        <h2 className="text-lg font-medium">New Post</h2>
-        <Textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="Write something..."
-          rows={5}
-        />
-        <div className="mt-4 flex justify-end">
-          <Button onClick={handleSubmit} disabled={loading || !content.trim()}>
-            {loading ? 'Posting...' : 'Post'}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <Dialog.Root>
+      <Dialog.Trigger asChild>
+        <button className="fixed bottom-6 right-6 bg-blue-600 text-white rounded-full px-5 py-2 shadow-md hover:bg-blue-700">
+          Post
+        </button>
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" />
+        <Dialog.Content className="fixed z-50 left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white dark:bg-zinc-950 p-4 flex flex-col gap-4 border border-border max-h-[90vh] overflow-hidden">
+          <Dialog.Title className="text-lg font-medium">Create Post</Dialog.Title>
+          <Textarea
+            placeholder="What's on your mind?"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            className="min-h-[150px] resize-none flex-1"
+          />
+          <div className="flex items-center justify-between mt-auto pt-2 border-t border-border">
+            <div className="pl-1">
+              {session?.user && (
+                <Avatar name={session.user.name || 'User'} className="h-8 w-8" />
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Dialog.Close asChild>
+                <Button variant="outline">Cancel</Button>
+              </Dialog.Close>
+              <Button onClick={handleSubmit}>Post</Button>
+            </div>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }
