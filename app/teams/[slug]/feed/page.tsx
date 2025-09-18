@@ -1,29 +1,43 @@
-import { db } from "@/lib/db";
+import { prisma } from '@/lib/prisma'
+import { getServerAuthSession } from '@/lib/authLoose'
+import FeedPostDate from '@/components/feed/FeedPostDate'
+import { DeletePostButton } from '@/components/feed/DeletePostButton'
 
-export default async function TeamFeedPage({ params }: { params: { slug: string } }) {
-  const posts = await db.post.findMany({
+type Props = {
+  params: { slug: string }
+}
+
+export default async function TeamFeedPage({ params }: Props) {
+  const session = await getServerAuthSession()
+
+  const posts = await prisma.post.findMany({
     where: {
-      teamAffiliation: params.slug,
+      author: { teamAffiliation: params.slug },
     },
-    orderBy: { createdAt: "desc" },
-  });
+    include: { author: true },
+    orderBy: { postedAt: 'desc' },
+  })
 
   return (
-    <section>
-      <h1 className="text-2xl font-bold capitalize mb-4">Feed — {params.slug}</h1>
-
+    <div className="space-y-4">
       {posts.length === 0 ? (
-        <p className="text-gray-500">No posts found for this team.</p>
+        <p className="text-muted-foreground text-center mt-8">No posts from this team yet.</p>
       ) : (
-        <ul className="grid gap-4">
-          {posts.map((post) => (
-            <li key={post.id} className="border p-4 rounded shadow-sm">
-              <h2 className="font-semibold">{post.title}</h2>
-              <p className="text-sm text-gray-500">{post.content}</p>
-            </li>
-          ))}
-        </ul>
+        posts.map((post) => (
+          <div key={post.id} className="border rounded-lg p-4 shadow-sm bg-white">
+            <div className="text-sm font-semibold">
+              {post.author.firstName} {post.author.lastName}
+            </div>
+            <FeedPostDate date={post.postedAt} />
+            <p className="mt-2 text-gray-800">{post.content}</p>
+            {session?.user?.id === post.authorId && (
+              <div className="mt-2">
+                <DeletePostButton id={post.id} />
+              </div>
+            )}
+          </div>
+        ))
       )}
-    </section>
-  );
+    </div>
+  )
 }
