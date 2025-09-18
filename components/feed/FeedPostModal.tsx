@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import Textarea from '@/components/ui/textarea'
+import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 
 interface FeedPostModalProps {
