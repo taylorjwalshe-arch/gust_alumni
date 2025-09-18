@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Avatar } from '@/components/ui/avatar'
 import FeedPostDate from './FeedPostDate'
+import FeedSkeleton from './FeedSkeleton'
 
 type Post = {
   id: string
@@ -16,12 +17,16 @@ type Post = {
 
 export default function FeedList() {
   const [posts, setPosts] = useState<Post[]>([])
+  const [loading, setLoading] = useState(true)
   const [optimisticPost, setOptimisticPost] = useState<Post | null>(null)
 
   useEffect(() => {
     fetch('/api/feed')
       .then(res => res.json())
-      .then(data => setPosts(data.posts))
+      .then(data => {
+        setPosts(data.posts)
+        setLoading(false)
+      })
   }, [])
 
   useEffect(() => {
@@ -39,6 +44,8 @@ export default function FeedList() {
     window.addEventListener('new-post', handler as EventListener)
     return () => window.removeEventListener('new-post', handler as EventListener)
   }, [])
+
+  if (loading) return <FeedSkeleton />
 
   const allPosts = optimisticPost ? [optimisticPost, ...posts] : posts
 
