@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { useRouter } from 'next/navigation'
 
 interface FeedPostModalProps {
   open: boolean
@@ -13,6 +14,8 @@ interface FeedPostModalProps {
 export function FeedPostModal({ open, setOpen }: FeedPostModalProps) {
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  const router = useRouter()
 
   async function handleSubmit() {
     setLoading(true)
@@ -26,6 +29,11 @@ export function FeedPostModal({ open, setOpen }: FeedPostModalProps) {
 
       setContent('')
       setOpen(false)
+
+      // ✅ Refresh feed
+      startTransition(() => {
+        router.refresh()
+      })
     } catch (err) {
       console.error(err)
       alert('Error posting')
