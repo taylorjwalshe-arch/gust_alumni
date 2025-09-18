@@ -6,14 +6,9 @@ export async function GET(req: Request) {
   const team = searchParams.get('team')
 
   const jobs = await prisma.job.findMany({
-    where: team
-      ? {
-          poster: {
-            teamAffiliation: team,
-          },
-        }
-      : undefined,
-    include: { poster: true },
+    where: {
+      ...(team ? { teamAffiliation: team } : {}),
+    },
     orderBy: { postedAt: 'desc' },
   })
 
