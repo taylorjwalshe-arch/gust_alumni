@@ -8,6 +8,7 @@ export default async function FeedList() {
   const posts = await prisma.post.findMany({
     include: { author: true },
     orderBy: { postedAt: 'desc' },
+    take: 10,
   })
 
   if (posts.length === 0) {
