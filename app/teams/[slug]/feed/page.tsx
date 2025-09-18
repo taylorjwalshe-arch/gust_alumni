@@ -1,36 +1,63 @@
-import { getTeamFeed } from '@/lib/data'
-import { getServerAuthSession } from '@/lib/authLoose'
-import { DeletePostButton } from '@/components/feed/DeletePostButton'
-import FeedPostDate from '@/components/feed/FeedPostDate'
+import { getTeamBySlug, getFilteredPosts } from '@/lib/data'
+import { TeamBanner } from '@/components/teams/TeamBanner'
+import FeedList from '@/components/feed/FeedList'
 
 interface Props {
-  params: { slug: string }
+  params: {
+    slug: string
+  }
+  searchParams: {
+    q?: string
+    role?: string
+    location?: string
+  }
 }
 
-export default async function TeamFeedPage({ params }: Props) {
-  const session = await getServerAuthSession()
-  const posts = await getTeamFeed(params.slug)
+export default async function TeamFeedPage({ params, searchParams }: Props) {
+  const team = await getTeamBySlug(params.slug)
+  if (!team) return null
 
-  if (posts.length === 0) {
-    return <p className="text-center text-muted-foreground mt-8">No posts yet for this team.</p>
-  }
+  const posts = await getFilteredPosts({
+    teamId: team.id,
+    query: searchParams.q,
+    role: searchParams.role,
+    location: searchParams.location,
+  })
 
   return (
-    <ul className="space-y-4">
-      {posts.map((post) => (
-        <li key={post.id} className="border rounded-lg p-4 shadow-sm bg-white">
-          <div className="text-sm font-semibold">
-            {post.author.firstName} {post.author.lastName}
-          </div>
-          <FeedPostDate date={post.postedAt} />
-          <p className="mt-2 text-gray-800">{post.content}</p>
-          {session?.user?.id === post.authorId && (
-            <div className="mt-2">
-              <DeletePostButton id={post.id} />
-            </div>
-          )}
-        </li>
-      ))}
-    </ul>
+    <div>
+      <TeamBanner team={team} />
+      <h1 className="text-2xl font-semibold mb-4">Feed</h1>
+      <form className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-2">
+        <input
+          type="text"
+          name="q"
+          defaultValue={searchParams.q}
+          placeholder="Search posts"
+          className="border px-3 py-2 rounded"
+        />
+        <input
+          type="text"
+          name="role"
+          defaultValue={searchParams.role}
+          placeholder="Filter by role"
+          className="border px-3 py-2 rounded"
+        />
+        <input
+          type="text"
+          name="location"
+          defaultValue={searchParams.location}
+          placeholder="Filter by location"
+          className="border px-3 py-2 rounded"
+        />
+        <button
+          type="submit"
+          className="bg-blue-600 text-white rounded px-4 py-2 hover:bg-blue-700 transition"
+        >
+          Apply
+        </button>
+      </form>
+      <FeedList posts={posts} />
+    </div>
   )
 }
