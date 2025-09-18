@@ -1,11 +1,18 @@
 import { getTeamFeed } from '@/lib/data'
+import { getServerAuthSession } from '@/lib/authLoose'
+import { DeletePostButton } from '@/components/feed/DeletePostButton'
 import FeedPostDate from '@/components/feed/FeedPostDate'
 
-export default async function TeamFeedPage({ params }: { params: { slug: string } }) {
+interface Props {
+  params: { slug: string }
+}
+
+export default async function TeamFeedPage({ params }: Props) {
+  const session = await getServerAuthSession()
   const posts = await getTeamFeed(params.slug)
 
   if (posts.length === 0) {
-    return <p className="text-center text-muted-foreground py-16">No posts yet for this team.</p>
+    return <p className="text-center text-muted-foreground mt-8">No posts yet for this team.</p>
   }
 
   return (
@@ -17,6 +24,11 @@ export default async function TeamFeedPage({ params }: { params: { slug: string 
           </div>
           <FeedPostDate date={post.postedAt} />
           <p className="mt-2 text-gray-800">{post.content}</p>
+          {session?.user?.id === post.authorId && (
+            <div className="mt-2">
+              <DeletePostButton id={post.id} />
+            </div>
+          )}
         </li>
       ))}
     </ul>
