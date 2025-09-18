@@ -1,61 +1,28 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { PostWithAuthor } from '@/types'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { formatDistanceToNow } from 'date-fns'
-import { cn } from '@/lib/utils'
+import { Post, Person } from '@prisma/client'
+import { Avatar } from '@/components/ui/avatar'
+import FeedPostDate from './FeedPostDate'
 
-interface FeedListProps {
-  posts: PostWithAuthor[]
-  search?: string
-}
+type PostWithAuthor = Post & { author: Person | null }
 
-export function FeedList({ posts, search = '' }: FeedListProps) {
-  const [filter, setFilter] = useState<'all' | 'offers' | 'requests'>('all')
-
-  const filtered = useMemo(() => {
-    let list = posts
-    if (filter !== 'all') {
-      list = list.filter((p) =>
-        filter === 'offers' ? !p.isRequest : p.isRequest
-      )
-    }
-    if (search) {
-      const s = search.toLowerCase()
-      list = list.filter(
-        (p) =>
-          p.content.toLowerCase().includes(s) ||
-          p.author?.firstName?.toLowerCase().includes(s) ||
-          p.author?.lastName?.toLowerCase().includes(s)
-      )
-    }
-    return list
-  }, [posts, filter, search])
+export default function FeedList({ posts }: { posts: PostWithAuthor[] }) {
+  if (posts.length === 0) return <p className="text-muted-foreground text-sm">No posts yet.</p>
 
   return (
     <div className="space-y-4">
-      {filtered.map((post) => (
-        <div
-          key={post.id}
-          className={cn(
-            'rounded-xl border p-4 bg-white shadow-sm',
-            post.isRequest ? 'border-red-200' : 'border-green-200'
-          )}
-        >
+      {posts.map((post) => (
+        <div key={post.id} className="bg-white dark:bg-zinc-900 p-4 rounded-md shadow-sm border border-border">
           <div className="flex items-center gap-3 mb-2">
-            <Avatar className="h-7 w-7">
-              <AvatarFallback>
-                {post.author?.firstName?.[0]}
-                {post.author?.lastName?.[0]}
-              </AvatarFallback>
-            </Avatar>
-            <div className="text-sm text-muted-foreground">
-              {post.author?.firstName} {post.author?.lastName} ·{' '}
-              {formatDistanceToNow(new Date(post.postedAt), { addSuffix: true })}
+            <Avatar name={post.author?.firstName || 'Unknown'} className="h-8 w-8" />
+            <div className="flex flex-col">
+              <p className="font-medium text-sm">
+                {post.author?.firstName} {post.author?.lastName}
+              </p>
+              <FeedPostDate date={post.postedAt} />
             </div>
           </div>
-          <div className="text-sm whitespace-pre-wrap">{post.content}</div>
+          <p className="text-sm whitespace-pre-line">{post.content}</p>
         </div>
       ))}
     </div>
