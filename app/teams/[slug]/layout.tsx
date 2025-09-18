@@ -1,26 +1,49 @@
-import { ReactNode } from 'react'
-import { Metadata } from 'next'
-import TeamTabs from '@/components/teams/TeamTabs'
-import TeamBanner from '@/components/teams/TeamBanner'
+'use client'
 
-type Props = {
+import { ReactNode } from 'react'
+import Link from 'next/link'
+import { useSelectedLayoutSegment } from 'next/navigation'
+import { TEAM_CONFIGS } from '@/lib/teams'
+import { TeamBanner } from '@/components/teams/TeamBanner'
+
+export default function TeamLayout({
+  children,
+  params,
+}: {
   children: ReactNode
   params: { slug: string }
-}
+}) {
+  const team = TEAM_CONFIGS[params.slug]
+  const navStyle = team?.nav || 'bg-gray-800 text-white'
+  const segment = useSelectedLayoutSegment()
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  return {
-    title: `Team ${params.slug} | Gust`,
-    description: `Explore posts, jobs, mentors, and directory for team ${params.slug} on Gust.`,
-  }
-}
+  const tabs = [
+    { label: 'Directory', href: 'directory' },
+    { label: 'Feed', href: 'feed' },
+    { label: 'Jobs', href: 'jobs' },
+    { label: 'Mentors', href: 'mentors' },
+  ]
 
-export default function TeamLayout({ children, params }: Props) {
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="space-y-4">
       <TeamBanner slug={params.slug} />
-      <div className="px-4">
-        <TeamTabs slug={params.slug} />
+
+      <nav className={`flex gap-6 text-sm font-semibold px-6 py-3 rounded-lg shadow ${navStyle}`}>
+        {tabs.map((tab) => {
+          const isActive = segment === tab.href
+          return (
+            <Link
+              key={tab.href}
+              href={`/teams/${params.slug}/${tab.href}`}
+              className={isActive ? 'underline underline-offset-4' : 'opacity-70 hover:opacity-100'}
+            >
+              {tab.label}
+            </Link>
+          )
+        })}
+      </nav>
+
+      <div className="bg-white shadow-sm border rounded-xl p-4">
         {children}
       </div>
     </div>
