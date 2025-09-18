@@ -1,21 +1,39 @@
-import { getTeamMentors } from '@/lib/data'
+import { getTeamBySlug, getMentorsByTeamSlug } from '@/lib/data'
 import { SuggestMentorsButton } from '@/components/mentors/SuggestMentorsButton'
 import MentorCard from '@/components/mentors/MentorCard'
+import { getServerAuthSession } from '@/lib/authLoose'
+import { TeamBanner } from '@/components/teams/TeamBanner'
 
 interface Props {
-  params: { slug: string }
+  params: {
+    slug: string
+  }
 }
 
 export default async function TeamMentorsPage({ params }: Props) {
-  const mentors = await getTeamMentors(params.slug)
+  const team = await getTeamBySlug(params.slug)
+  if (!team) return null
+
+  const mentors = await getMentorsByTeamSlug(params.slug)
+  const session = await getServerAuthSession()
 
   return (
-    <div className="space-y-6">
-      <SuggestMentorsButton />
+    <div>
+      <TeamBanner team={team} />
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-semibold">Mentors</h1>
+        {session?.user.teamAffiliation === params.slug && <SuggestMentorsButton />}
+      </div>
       {mentors.length === 0 ? (
-        <p className="text-muted-foreground text-center">No mentors for this team yet.</p>
+        <p className="text-center text-muted-foreground mt-8">No mentors listed yet.</p>
       ) : (
-        mentors.map((mentor) => <MentorCard key={mentor.id} mentor={mentor} />)
+        <ul className="space-y-4">
+          {mentors.map((mentor) => (
+            <li key={mentor.id}>
+              <MentorCard mentor={mentor} />
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   )
