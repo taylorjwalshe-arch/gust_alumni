@@ -1,68 +1,37 @@
 "use client";
-import { usePathname, useSearchParams, useRouter } from "next/navigation";
 
-export function DirectoryFilters() {
+import { useSearchParams, useRouter } from "next/navigation";
+
+export function DirectoryFilters({ active }: { active?: { industry?: string; location?: string } }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+  const searchParams = useSearchParams();
 
-  const industries = ["A&D", "Energy", "Software", "Nuclear", "Sensors", "Industrial Tech"];
-  const locations = ["Boston, MA", "Providence, RI", "Remote", "NYC", "DC"];
+  const handleRemove = (key: "industry" | "location") => {
+    const newParams = new URLSearchParams(searchParams.toString());
+    newParams.delete(key);
+    router.push(`/directory?${newParams.toString()}`);
+  };
 
-  const selectedIndustry = params.get("industry") || "";
-  const selectedLocation = params.get("location") || "";
-
-  function updateParam(key: string, value: string) {
-    const newParams = new URLSearchParams(Array.from(params.entries()));
-    if (value) {
-      newParams.set(key, value);
-    } else {
-      newParams.delete(key);
-    }
-    router.push(`${pathname}?${newParams.toString()}`);
-  }
-
-  function clearFilters() {
-    const newParams = new URLSearchParams(Array.from(params.entries()));
-    newParams.delete("industry");
-    newParams.delete("location");
-    router.push(`${pathname}?${newParams.toString()}`);
-  }
+  if (!active?.industry && !active?.location) return null;
 
   return (
-    <div className="flex gap-4 flex-wrap items-end">
-      <div className="flex flex-col">
-        <label className="text-sm text-gray-600">Industry</label>
-        <select
-          value={selectedIndustry}
-          onChange={(e) => updateParam("industry", e.target.value)}
-          className="rounded border px-2 py-1 text-sm"
+    <div className="mb-4 flex flex-wrap gap-2">
+      {active.industry && (
+        <button
+          className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
+          onClick={() => handleRemove("industry")}
         >
-          <option value="">All Industries</option>
-          {industries.map((i) => (
-            <option key={i} value={i}>{i}</option>
-          ))}
-        </select>
-      </div>
-      <div className="flex flex-col">
-        <label className="text-sm text-gray-600">Location</label>
-        <select
-          value={selectedLocation}
-          onChange={(e) => updateParam("location", e.target.value)}
-          className="rounded border px-2 py-1 text-sm"
+          {active.industry} ✕
+        </button>
+      )}
+      {active.location && (
+        <button
+          className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm"
+          onClick={() => handleRemove("location")}
         >
-          <option value="">All Locations</option>
-          {locations.map((l) => (
-            <option key={l} value={l}>{l}</option>
-          ))}
-        </select>
-      </div>
-      <button
-        onClick={clearFilters}
-        className="text-sm underline text-blue-600 hover:text-blue-800"
-      >
-        Clear
-      </button>
+          {active.location} ✕
+        </button>
+      )}
     </div>
   );
 }
