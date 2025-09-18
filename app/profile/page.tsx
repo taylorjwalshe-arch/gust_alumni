@@ -1,8 +1,12 @@
-export default function ProfilePage() {
+import { Suspense } from "react";
+
+export default function MyProfilePage() {
   return (
-    <div>
-      <h1 className="text-xl font-semibold mb-2">My Profile</h1>
-      <p>This is your personal profile page. Sign in to edit your details.</p>
-    </div>
+    <Suspense fallback={<p>Loading profile...</p>}>
+      <div className="p-4">
+        <h1 className="text-2xl font-semibold">My Profile</h1>
+        <p className="mt-2 text-gray-600">User-specific profile info will be displayed here.</p>
+      </div>
+    </Suspense>
   );
 }
