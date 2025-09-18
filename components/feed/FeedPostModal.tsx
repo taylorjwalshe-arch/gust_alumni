@@ -1,7 +1,7 @@
 'use client'
 
 import * as Dialog from '@radix-ui/react-dialog'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/avatar'
@@ -10,6 +10,18 @@ import { useSession } from 'next-auth/react'
 export default function FeedPostModal() {
   const [content, setContent] = useState('')
   const { data: session } = useSession()
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const el = textareaRef.current
+      if (el) {
+        requestAnimationFrame(() => el.focus())
+      }
+    }
+    document.addEventListener('dialog-open', handler)
+    return () => document.removeEventListener('dialog-open', handler)
+  }, [])
 
   const handleSubmit = async () => {
     if (!content.trim()) return
@@ -30,9 +42,18 @@ export default function FeedPostModal() {
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" />
-        <Dialog.Content className="fixed z-50 left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white dark:bg-zinc-950 p-4 flex flex-col gap-4 border border-border max-h-[90vh] overflow-hidden">
+        <Dialog.Content
+          className="fixed z-50 left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white dark:bg-zinc-950 p-4 flex flex-col gap-4 border border-border max-h-[90vh] overflow-hidden"
+          onOpenAutoFocus={(e) => {
+            e.preventDefault()
+            if (textareaRef.current) {
+              textareaRef.current.focus()
+            }
+          }}
+        >
           <Dialog.Title className="text-lg font-medium">Create Post</Dialog.Title>
           <Textarea
+            ref={textareaRef}
             placeholder="What's on your mind?"
             value={content}
             onChange={(e) => setContent(e.target.value)}
