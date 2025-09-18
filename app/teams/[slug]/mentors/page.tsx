@@ -1,18 +1,22 @@
 import { getTeamMentors } from '@/lib/data'
-import { MentorCard } from '@/components/mentors/MentorCard'
+import { SuggestMentorsButton } from '@/components/mentors/SuggestMentorsButton'
+import MentorCard from '@/components/mentors/MentorCard'
 
-export default async function TeamMentorsPage({ params }: { params: { slug: string } }) {
+interface Props {
+  params: { slug: string }
+}
+
+export default async function TeamMentorsPage({ params }: Props) {
   const mentors = await getTeamMentors(params.slug)
 
-  if (mentors.length === 0) {
-    return <p className="text-center text-muted-foreground py-16">No mentors found for this team.</p>
-  }
-
   return (
-    <ul className="space-y-4">
-      {mentors.map((mentor) => (
-        <MentorCard key={mentor.id} mentor={mentor} />
-      ))}
-    </ul>
+    <div className="space-y-6">
+      <SuggestMentorsButton />
+      {mentors.length === 0 ? (
+        <p className="text-muted-foreground text-center">No mentors for this team yet.</p>
+      ) : (
+        mentors.map((mentor) => <MentorCard key={mentor.id} mentor={mentor} />)
+      )}
+    </div>
   )
 }
