@@ -14,7 +14,7 @@ export default function TeamDirectoryPage({ params }: Props) {
 
   if (error) return <div>Error loading directory</div>
   if (!data) return <div>Loading directory...</div>
-  if (data.length === 0) return <div className="text-muted-foreground mt-8 text-center">No members yet.</div>
+  if (data.length === 0) return <div className="text-muted-foreground mt-8 text-center">No members found.</div>
 
   return (
     <ul className="space-y-4 mt-4">

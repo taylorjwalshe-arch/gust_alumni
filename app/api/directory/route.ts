@@ -7,7 +7,7 @@ export async function GET(req: Request) {
 
   const people = await prisma.person.findMany({
     where: {
-      role: 'member',
+      role: 'MEMBER',
       ...(team ? { teamAffiliation: team } : {}),
     },
     orderBy: { lastName: 'asc' },
