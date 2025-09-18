@@ -1,14 +1,12 @@
-"use client";
-
-import { DirectoryFilters } from "./DirectoryFilters";
-import React from "react";
+import type { Person } from "@prisma/client";
 import DirectoryCard from "./DirectoryCard";
 
-export default function DirectoryView() {
+export default function DirectoryView({ people }: { people: Person[] }) {
   return (
-    <div className="space-y-4">
-      <DirectoryFilters />
-      <DirectoryCard person={person} />
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+      {people.map((p) => (
+        <DirectoryCard key={p.id} person={p} />
+      ))}
     </div>
   );
 }
