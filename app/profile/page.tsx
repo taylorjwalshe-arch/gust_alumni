@@ -2,7 +2,9 @@ export default function ProfilePage() {
   return (
     <section>
       <h1 className="text-2xl font-bold">My Profile</h1>
-      <p className="mt-2 text-gray-600">Coming soon: personalized dashboards, editing tools, and more.</p>
+      <p className="mt-2 text-gray-600">
+        Coming soon: personalized dashboards, editing tools, and more.
+      </p>
     </section>
   );
 }

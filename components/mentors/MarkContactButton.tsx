@@ -26,7 +26,12 @@ export default function MarkContactButton({ mentorId }: { mentorId: string }) {
     }
   }
 
-  if (done) return <span className="text-green-600 text-sm" role="status">Logged</span>;
+  if (done)
+    return (
+      <span className="text-green-600 text-sm" role="status">
+        Logged
+      </span>
+    );
 
   return (
     <button

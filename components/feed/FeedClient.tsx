@@ -47,8 +47,12 @@ export default function FeedClient() {
           <div key={it.id} className="border rounded p-3">
             <div className="text-xs uppercase text-gray-500">{it.type}</div>
             <div className="font-semibold">{it.title}</div>
-            {it.body ? <div className="text-sm text-gray-700 whitespace-pre-wrap">{it.body}</div> : null}
-            <div className="text-xs text-gray-500 mt-1">{new Date(it.postedAt).toLocaleString()}</div>
+            {it.body ? (
+              <div className="text-sm text-gray-700 whitespace-pre-wrap">{it.body}</div>
+            ) : null}
+            <div className="text-xs text-gray-500 mt-1">
+              {new Date(it.postedAt).toLocaleString()}
+            </div>
           </div>
         ))}
         {data.items.length === 0 && <div className="text-sm text-gray-600">No items yet.</div>}

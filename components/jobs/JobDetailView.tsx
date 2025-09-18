@@ -47,7 +47,9 @@ function companyNode(text: string | null) {
   return <span className="text-gray-700">{t}</span>;
 }
 
-type PersonResp = { item: { id: string; firstName: string | null; lastName: string | null } | null };
+type PersonResp = {
+  item: { id: string; firstName: string | null; lastName: string | null } | null;
+};
 
 export default function JobDetailView() {
   const params = useParams() as Record<string, string | string[]>;
@@ -70,7 +72,9 @@ export default function JobDetailView() {
           const pid = json.item?.posterId ?? null;
           if (pid) {
             try {
-              const pr = await fetch(`/api/directory/${encodeURIComponent(pid)}`, { cache: "no-store" });
+              const pr = await fetch(`/api/directory/${encodeURIComponent(pid)}`, {
+                cache: "no-store",
+              });
               const pj: PersonResp = await pr.json();
               if (!cancelled) setPoster(pj.item);
             } catch {}
@@ -83,7 +87,9 @@ export default function JobDetailView() {
       }
     }
     run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   if (loading) return <div className="text-sm text-gray-500">Loading…</div>;
@@ -98,8 +104,18 @@ export default function JobDetailView() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold">{d.title ?? "Untitled"}</h1>
-          <p className="mt-1">{isReq ? <span className="text-gray-700">Anonymous request</span> : companyNode(d.company)}</p>
-          {isReq ? <p className="mt-1 text-xs text-gray-500">Poster chose to remain anonymous. Use the button below to offer help.</p> : null}
+          <p className="mt-1">
+            {isReq ? (
+              <span className="text-gray-700">Anonymous request</span>
+            ) : (
+              companyNode(d.company)
+            )}
+          </p>
+          {isReq ? (
+            <p className="mt-1 text-xs text-gray-500">
+              Poster chose to remain anonymous. Use the button below to offer help.
+            </p>
+          ) : null}
         </div>
         {isReq ? (
           <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
@@ -121,7 +137,9 @@ export default function JobDetailView() {
       ) : null}
 
       {d.description ? (
-        <div className="prose max-w-none whitespace-pre-wrap text-sm text-gray-800">{d.description}</div>
+        <div className="prose max-w-none whitespace-pre-wrap text-sm text-gray-800">
+          {d.description}
+        </div>
       ) : (
         <div className="text-sm text-gray-500">No description provided.</div>
       )}

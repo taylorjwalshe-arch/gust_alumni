@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import MarkContactButton from "./MarkContactButton";
 
 type Suggestion = { id: string; name: string | null } | null;
-type HistoryItem = { id: string; mentorId: string; action: string; note: string | null; ts: string };
+type HistoryItem = {
+  id: string;
+  mentorId: string;
+  action: string;
+  note: string | null;
+  ts: string;
+};
 type Out = { week: string; suggestion: Suggestion; history: HistoryItem[]; reason?: string };
 
 export default function MatchHistory() {
@@ -21,7 +27,9 @@ export default function MatchHistory() {
         if (!cancelled) setData({ week: "", suggestion: null, history: [] });
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const sug = data?.suggestion;
@@ -54,7 +62,9 @@ export default function MatchHistory() {
               <li key={h.id} className="py-2 flex items-start justify-between gap-4">
                 <div>
                   <div className="font-medium">Mentor #{h.mentorId}</div>
-                  <div className="text-xs text-gray-500">{new Date(h.ts).toLocaleString()} — {h.action}</div>
+                  <div className="text-xs text-gray-500">
+                    {new Date(h.ts).toLocaleString()} — {h.action}
+                  </div>
                   {h.note && <div className="text-sm mt-1">{h.note}</div>}
                 </div>
               </li>

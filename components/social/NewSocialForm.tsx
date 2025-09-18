@@ -3,13 +3,11 @@
 import { useEffect, useState } from "react";
 import { useNotifications } from "@/components/notify/NotificationsProvider";
 
-type Session =
-  | {
-      user?: {
-        role?: string | null;
-      } | null;
-    }
-  | null;
+type Session = {
+  user?: {
+    role?: string | null;
+  } | null;
+} | null;
 
 export default function NewSocialForm() {
   const { notify } = useNotifications();
@@ -29,7 +27,7 @@ export default function NewSocialForm() {
         const res = await fetch("/api/auth/session", { cache: "no-store" });
         if (res.ok) {
           const json = (await res.json()) as unknown as Session;
-          const r = (json && json.user && typeof json.user.role === "string") ? json.user.role : null;
+          const r = json && json.user && typeof json.user.role === "string" ? json.user.role : null;
           if (!cancelled) setRole(r);
         } else if (!cancelled) {
           setRole(null);
@@ -108,7 +106,11 @@ export default function NewSocialForm() {
       </div>
       <div className="grid gap-2">
         <label className="text-sm text-gray-700">Type</label>
-        <select value={type} onChange={(e) => setType(e.target.value)} className="border rounded-lg px-3 py-2">
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          className="border rounded-lg px-3 py-2"
+        >
           <option>Social</option>
           <option>Team News</option>
           <option>Alum News</option>

@@ -2,7 +2,11 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 
-export function DirectoryFilters({ active }: { active?: { industry?: string; location?: string } }) {
+export function DirectoryFilters({
+  active,
+}: {
+  active?: { industry?: string; location?: string };
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
 

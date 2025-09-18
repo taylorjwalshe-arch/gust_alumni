@@ -56,8 +56,14 @@ export default function DirectoryIndexClient() {
       <h1 className="text-2xl font-bold">Directory</h1>
       <div className="grid gap-3">
         {data.items.map((p) => (
-          <a key={p.id} href={`/directory/${encodeURIComponent(p.id)}`} className="border rounded p-3 hover:bg-gray-50">
-            <div className="font-semibold">{[p.firstName, p.lastName].filter(Boolean).join(" ") || "(unknown)"}</div>
+          <a
+            key={p.id}
+            href={`/directory/${encodeURIComponent(p.id)}`}
+            className="border rounded p-3 hover:bg-gray-50"
+          >
+            <div className="font-semibold">
+              {[p.firstName, p.lastName].filter(Boolean).join(" ") || "(unknown)"}
+            </div>
             <div className="text-sm text-gray-600">
               {[p.location, (p.industries || []).join("; ")].filter(Boolean).join(" • ")}
             </div>

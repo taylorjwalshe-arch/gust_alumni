@@ -31,7 +31,9 @@ export default function PersonJobsList() {
     async function run() {
       setLoading(true);
       try {
-        const res = await fetch(`/api/jobs/by-poster/${encodeURIComponent(personId)}`, { cache: "no-store" });
+        const res = await fetch(`/api/jobs/by-poster/${encodeURIComponent(personId)}`, {
+          cache: "no-store",
+        });
         const json: Resp = await res.json();
         if (!cancelled) setData(json);
       } catch {
@@ -41,7 +43,9 @@ export default function PersonJobsList() {
       }
     }
     run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [personId]);
 
   if (loading) return null;
@@ -57,7 +61,11 @@ export default function PersonJobsList() {
               {j.title ?? "Untitled"}
             </Link>
             {j.company ? <span className="text-gray-600"> • {j.company}</span> : null}
-            {j.isRequest ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Request</span> : null}
+            {j.isRequest ? (
+              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
+                Request
+              </span>
+            ) : null}
           </li>
         ))}
       </ul>

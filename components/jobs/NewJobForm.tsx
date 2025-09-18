@@ -7,11 +7,7 @@ export default function NewJobForm() {
   const formRef = useRef<HTMLFormElement>(null);
 
   return (
-    <form
-      ref={formRef}
-      action="/app/actions/postJob"
-      className="space-y-4"
-    >
+    <form ref={formRef} action="/app/actions/postJob" className="space-y-4">
       <div>
         <label className="block text-sm font-medium">Job Title</label>
         <input name="title" required className="w-full border rounded px-3 py-2" />

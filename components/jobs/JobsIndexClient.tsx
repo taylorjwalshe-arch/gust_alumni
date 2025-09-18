@@ -61,16 +61,28 @@ export default function JobsIndexClient() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Jobs</h1>
-        <button className="px-3 py-2 rounded bg-blue-600 text-white" onClick={goNew} aria-label="Post a job">
+        <button
+          className="px-3 py-2 rounded bg-blue-600 text-white"
+          onClick={goNew}
+          aria-label="Post a job"
+        >
           Post a job
         </button>
       </div>
       <div className="grid gap-3">
         {data.items.map((j) => (
-          <a key={j.id} href={`/jobs/${encodeURIComponent(j.id)}`} className="border rounded p-3 hover:bg-gray-50">
+          <a
+            key={j.id}
+            href={`/jobs/${encodeURIComponent(j.id)}`}
+            className="border rounded p-3 hover:bg-gray-50"
+          >
             <div className="flex items-center justify-between">
               <div className="font-semibold">{j.title || "(untitled)"}</div>
-              {j.isRequest ? <span className="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-800">Request</span> : null}
+              {j.isRequest ? (
+                <span className="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-800">
+                  Request
+                </span>
+              ) : null}
             </div>
             <div className="text-sm text-gray-600">
               {[j.company, j.location].filter(Boolean).join(" • ")}

@@ -86,7 +86,9 @@ export default function ContactsClient() {
             {data.items.length === 0 && (
               <tr>
                 <td className="p-4 text-gray-500" colSpan={5}>
-                  {data.reason === "fetch-failed" ? "Failed to load inbox (showing empty list)." : "No contacts yet."}
+                  {data.reason === "fetch-failed"
+                    ? "Failed to load inbox (showing empty list)."
+                    : "No contacts yet."}
                 </td>
               </tr>
             )}

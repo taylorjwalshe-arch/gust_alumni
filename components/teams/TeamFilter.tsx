@@ -7,7 +7,7 @@ type Option = { label: string; value: string };
 
 const OPTIONS: Option[] = [
   { label: "All teams", value: "" },
-  { label: "Georgetown Sailing", value: "georgetown-sailing" }
+  { label: "Georgetown Sailing", value: "georgetown-sailing" },
 ];
 
 export default function TeamFilter() {

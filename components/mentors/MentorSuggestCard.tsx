@@ -35,7 +35,9 @@ export default function MentorSuggestCard() {
       }
     }
     run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function log(action: "accept" | "skip" | "contact") {
@@ -53,24 +55,35 @@ export default function MentorSuggestCard() {
   }
 
   if (loading) return <div className="text-sm text-gray-500">Loading weekly suggestion…</div>;
-  if (!data.item) return <div className="text-sm text-gray-500">No mentor suggestion this week.</div>;
+  if (!data.item)
+    return <div className="text-sm text-gray-500">No mentor suggestion this week.</div>;
 
   const m = data.item;
-  const name = `${(m.firstName ?? "").trim()} ${(m.lastName ?? "").trim()}`.trim() || "Unnamed mentor";
+  const name =
+    `${(m.firstName ?? "").trim()} ${(m.lastName ?? "").trim()}`.trim() || "Unnamed mentor";
 
   return (
     <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-4">
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Your weekly mentor match</h2>
-        <span className="text-xs text-blue-700">Week of {new Date(data.weekStartISO).toLocaleDateString()}</span>
+        <span className="text-xs text-blue-700">
+          Week of {new Date(data.weekStartISO).toLocaleDateString()}
+        </span>
       </div>
       <div className="space-y-1">
-        <Link href={`/mentors/${m.id}`} className="text-blue-700 hover:underline">{name}</Link>
+        <Link href={`/mentors/${m.id}`} className="text-blue-700 hover:underline">
+          {name}
+        </Link>
         {m.location ? <div className="text-sm text-gray-600">{m.location}</div> : null}
         {Array.isArray(m.industries) && m.industries.length > 0 ? (
           <div className="flex flex-wrap gap-1">
             {m.industries.slice(0, 4).map((tag, i) => (
-              <span key={i} className="rounded-full bg-white px-2 py-0.5 text-xs text-blue-700 ring-1 ring-blue-200">{tag}</span>
+              <span
+                key={i}
+                className="rounded-full bg-white px-2 py-0.5 text-xs text-blue-700 ring-1 ring-blue-200"
+              >
+                {tag}
+              </span>
             ))}
           </div>
         ) : null}
@@ -103,7 +116,11 @@ export default function MentorSuggestCard() {
       </div>
       {action !== "idle" ? (
         <div className="mt-2 text-xs text-gray-600">
-          {action === "accepted" ? "Saved: accepted." : action === "skipped" ? "Saved: skipped." : "Saved: contacted."}
+          {action === "accepted"
+            ? "Saved: accepted."
+            : action === "skipped"
+              ? "Saved: skipped."
+              : "Saved: contacted."}
         </div>
       ) : null}
     </div>

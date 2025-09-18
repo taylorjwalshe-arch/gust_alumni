@@ -7,11 +7,7 @@ export default function NotifyBell() {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="relative p-2"
-        aria-label="Notifications"
-      >
+      <button onClick={() => setOpen(!open)} className="relative p-2" aria-label="Notifications">
         🔔
         {list.length > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full px-1 text-xs">

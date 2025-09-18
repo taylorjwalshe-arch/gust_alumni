@@ -41,16 +41,76 @@ function pick(obj, fields) {
 
 function sampleRows() {
   return [
-    { title: "Software Engineer", company: "Google", location: "NYC, NY", isRequest: false, postedAt: new Date(Date.now() - 1 * 864e5) },
-    { title: "Analyst", company: "Goldman Sachs", location: "New York, NY", isRequest: false, postedAt: new Date(Date.now() - 2 * 864e5) },
-    { title: "Product Manager", company: "Meta", location: "Seattle, WA", isRequest: false, postedAt: new Date(Date.now() - 3 * 864e5) },
-    { title: "Sales Associate", company: "Oracle", location: "Austin, TX", isRequest: false, postedAt: new Date(Date.now() - 4 * 864e5) },
-    { title: "Internship Request", company: null, location: "Boston, MA", isRequest: true, postedAt: new Date(Date.now() - 5 * 864e5) },
-    { title: "Tech Sales Request", company: null, location: "Remote", isRequest: true, postedAt: new Date(Date.now() - 6 * 864e5) },
-    { title: "Data Scientist", company: "Snowflake", location: "San Mateo, CA", isRequest: false, postedAt: new Date(Date.now() - 7 * 864e5) },
-    { title: "Operations Lead", company: "Stripe", location: "Chicago, IL", isRequest: false, postedAt: new Date(Date.now() - 8 * 864e5) },
-    { title: "Consulting Request", company: null, location: "Remote", isRequest: true, postedAt: new Date(Date.now() - 9 * 864e5) },
-    { title: "Design Intern", company: "Figma", location: "SF, CA", isRequest: false, postedAt: new Date(Date.now() - 10 * 864e5) }
+    {
+      title: "Software Engineer",
+      company: "Google",
+      location: "NYC, NY",
+      isRequest: false,
+      postedAt: new Date(Date.now() - 1 * 864e5),
+    },
+    {
+      title: "Analyst",
+      company: "Goldman Sachs",
+      location: "New York, NY",
+      isRequest: false,
+      postedAt: new Date(Date.now() - 2 * 864e5),
+    },
+    {
+      title: "Product Manager",
+      company: "Meta",
+      location: "Seattle, WA",
+      isRequest: false,
+      postedAt: new Date(Date.now() - 3 * 864e5),
+    },
+    {
+      title: "Sales Associate",
+      company: "Oracle",
+      location: "Austin, TX",
+      isRequest: false,
+      postedAt: new Date(Date.now() - 4 * 864e5),
+    },
+    {
+      title: "Internship Request",
+      company: null,
+      location: "Boston, MA",
+      isRequest: true,
+      postedAt: new Date(Date.now() - 5 * 864e5),
+    },
+    {
+      title: "Tech Sales Request",
+      company: null,
+      location: "Remote",
+      isRequest: true,
+      postedAt: new Date(Date.now() - 6 * 864e5),
+    },
+    {
+      title: "Data Scientist",
+      company: "Snowflake",
+      location: "San Mateo, CA",
+      isRequest: false,
+      postedAt: new Date(Date.now() - 7 * 864e5),
+    },
+    {
+      title: "Operations Lead",
+      company: "Stripe",
+      location: "Chicago, IL",
+      isRequest: false,
+      postedAt: new Date(Date.now() - 8 * 864e5),
+    },
+    {
+      title: "Consulting Request",
+      company: null,
+      location: "Remote",
+      isRequest: true,
+      postedAt: new Date(Date.now() - 9 * 864e5),
+    },
+    {
+      title: "Design Intern",
+      company: "Figma",
+      location: "SF, CA",
+      isRequest: false,
+      postedAt: new Date(Date.now() - 10 * 864e5),
+    },
   ];
 }
 

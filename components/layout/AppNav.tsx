@@ -10,7 +10,7 @@ export default function AppNav() {
     { href: "/jobs", label: "Jobs" },
     { href: "/mentors", label: "Mentors" },
     { href: "/feed", label: "Feed" },
-    { href: "/profile", label: "My Profile" }
+    { href: "/profile", label: "My Profile" },
   ];
   return (
     <nav className="mx-auto max-w-5xl flex flex-wrap items-center gap-4 p-4">

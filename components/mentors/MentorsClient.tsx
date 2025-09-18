@@ -6,7 +6,12 @@ import { useSearchParams } from "next/navigation";
 type SuggestOut = {
   week: string;
   suggestion: { id: string; name: string | null } | null;
-  history: { mentorId?: string | null; action?: string | null; note?: string | null; ts?: string | null }[];
+  history: {
+    mentorId?: string | null;
+    action?: string | null;
+    note?: string | null;
+    ts?: string | null;
+  }[];
 };
 
 export default function MentorsClient() {

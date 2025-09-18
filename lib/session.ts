@@ -4,7 +4,8 @@ export function readRole(session: LooseSession): "student" | "alum" | "admin" {
     (session &&
       typeof session === "object" &&
       (session as { user?: { role?: unknown } }).user &&
-      (session as { user?: { role?: unknown } }).user?.role) || null;
+      (session as { user?: { role?: unknown } }).user?.role) ||
+    null;
   if (r === "student" || r === "admin" || r === "alum") return r;
   return "alum";
 }

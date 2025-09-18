@@ -13,7 +13,10 @@ type Row = {
 };
 
 function parseCSV(text: string): Row[] {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
   if (lines.length === 0) return [];
   const header = lines[0].split(",").map((h) => h.trim());
   const rows: Row[] = [];
@@ -39,7 +42,9 @@ export default function ImportClient() {
   const search = useSearchParams();
   const [csv, setCsv] = useState("");
   const [preview, setPreview] = useState<Row[]>([]);
-  const [status, setStatus] = useState<"idle" | "parsing" | "ready" | "importing" | "done" | "error">("idle");
+  const [status, setStatus] = useState<
+    "idle" | "parsing" | "ready" | "importing" | "done" | "error"
+  >("idle");
   const team = search.get("team") || "";
 
   const count = useMemo(() => preview.length, [preview]);
@@ -83,7 +88,11 @@ export default function ImportClient() {
         aria-label="CSV input"
       />
       <div className="flex gap-2">
-        <button className="px-3 py-1 rounded bg-gray-200" onClick={onParse} aria-label="Parse preview">
+        <button
+          className="px-3 py-1 rounded bg-gray-200"
+          onClick={onParse}
+          aria-label="Parse preview"
+        >
           Parse preview
         </button>
         <button

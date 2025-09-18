@@ -19,10 +19,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur">
       <nav className="mx-auto max-w-6xl px-4 py-3 flex gap-6">
         {links.map((l) => {
-          const isActive =
-            l.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(l.href);
+          const isActive = l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
 
           return (
             <Link

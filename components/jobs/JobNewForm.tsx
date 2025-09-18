@@ -104,7 +104,9 @@ export default function JobNewForm() {
           onChange={(e) => setIsRequest(e.target.checked)}
           className="h-4 w-4"
         />
-        <label htmlFor="req" className="text-sm">Post as request (anonymous)</label>
+        <label htmlFor="req" className="text-sm">
+          Post as request (anonymous)
+        </label>
       </div>
       {error ? <div className="text-sm text-red-600">{error}</div> : null}
       <button
