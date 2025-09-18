@@ -1,4 +1,4 @@
-import { getServerAuthSession } from '@/lib/auth'
+import { getServerAuthSession } from '@/lib/authLoose'
 import { prisma } from '@/lib/prisma'
 import FeedList from '@/components/feed/FeedList'
 import { Avatar } from '@/components/ui/avatar'
