@@ -49,6 +49,14 @@ export default function FeedList() {
 
   const allPosts = optimisticPost ? [optimisticPost, ...posts] : posts
 
+  if (allPosts.length === 0) {
+    return (
+      <div className="text-center text-sm text-muted-foreground py-12">
+        No posts yet. Be the first to share an update!
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {allPosts.map((post) => (
