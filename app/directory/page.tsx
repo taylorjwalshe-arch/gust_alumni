@@ -1,8 +1,10 @@
-// app/directory/page.tsx
 import DirectoryView from "@/components/directory/DirectoryView";
 
-export const metadata = { title: "Directory" };
-
-export default function Page() {
-  return <DirectoryView />;
+export default function DirectoryPage() {
+  return (
+    <div>
+      <h1 className="text-xl font-semibold mb-4">Directory</h1>
+      <DirectoryView />
+    </div>
+  );
 }
