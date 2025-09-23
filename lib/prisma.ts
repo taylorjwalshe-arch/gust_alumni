@@ -1,10 +1,8 @@
-import pkg from "@prisma/client";
-const { PrismaClient } = pkg;
+import { PrismaClient } from "@prisma/client";
 
 declare global {
-  // Allow global var reuse in dev
   // eslint-disable-next-line no-var
-  var prisma: InstanceType<typeof PrismaClient> | undefined;
+  var prisma: PrismaClient | undefined;
 }
 
 const prisma =
