@@ -1,8 +1,8 @@
-import { PrismaClient } from "@prisma/client";
+let { PrismaClient } = require("@prisma/client");
 
 declare global {
   // eslint-disable-next-line no-var
-  var prisma: PrismaClient | undefined;
+  var prisma: InstanceType<typeof PrismaClient> | undefined;
 }
 
 const prisma =
