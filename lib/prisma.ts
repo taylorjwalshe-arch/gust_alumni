@@ -1,14 +1,20 @@
-import { PrismaClient } from "@prisma/client";
+import pkg from "@prisma/client";
+const { PrismaClient } = pkg;
 
 declare global {
-  // Avoid multiple PrismaClient instances in dev
-  var prisma: PrismaClient | undefined;
+  // Allow global var reuse in dev
+  // eslint-disable-next-line no-var
+  var prisma: InstanceType<typeof PrismaClient> | undefined;
 }
 
-export const prisma =
+const prisma =
   global.prisma ||
   new PrismaClient({
-    log: ["query", "error", "warn"],
+    log: ["error", "warn"],
   });
 
-if (process.env.NODE_ENV !== "production") global.prisma = prisma;
+if (process.env.NODE_ENV !== "production") {
+  global.prisma = prisma;
+}
+
+export default prisma;
